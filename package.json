@@ -1,0 +1,17 @@
+{
+  "name": "travel-agent",
+  "version": "0.0.1",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "dev:api": "pnpm --filter @travel-agent/api dev",
+    "dev:web": "pnpm --filter @travel-agent/web dev",
+    "build": "pnpm --recursive build",
+    "build:web": "pnpm --filter @travel-agent/web build"
+  }
+}
