@@ -1,4 +1,6 @@
 import type { StreamEvent } from "~/types/itinerary"
+import { useApiBase } from "~/composables/useApiBase"
+import { useAuthStore } from "~/stores/auth"
 
 interface ParsedChunk {
   event?: string
@@ -48,26 +50,18 @@ function normalizeEvent(chunk: string): StreamEvent | null {
   }
 }
 
+const AUTH_REQUIRED_ERROR = "__AUTH_REQUIRED__"
+
+export function isAuthRequiredError(error: unknown) {
+  return error instanceof Error && error.message === AUTH_REQUIRED_ERROR
+}
+
 export function useChatStream() {
-  const config = useRuntimeConfig()
-  const configuredApiBase = config.public.apiBase || ""
+  const { resolveApiBase } = useApiBase()
+  const authStore = useAuthStore()
 
-  function resolveApiBase() {
-    if (!import.meta.client) {
-      return configuredApiBase
-    }
-
-    const origin = window.location.origin
-    const isLocalBrowser =
-      origin.startsWith("http://localhost:") || origin.startsWith("http://127.0.0.1:")
-    const pointsToLocalApi =
-      configuredApiBase.startsWith("http://localhost:3001") || configuredApiBase.startsWith("http://127.0.0.1:3001")
-
-    if (isLocalBrowser && pointsToLocalApi) {
-      return ""
-    }
-
-    return configuredApiBase
+  function createAuthRequiredError() {
+    return new Error(AUTH_REQUIRED_ERROR)
   }
 
   async function createSession() {
@@ -75,8 +69,14 @@ export function useChatStream() {
       const apiBase = resolveApiBase()
       const url = `${apiBase}/api/sessions`
       const response = await fetch(url, {
-        method: "POST"
+        method: "POST",
+        credentials: "include"
       })
+
+      if (response.status === 401) {
+        authStore.handleUnauthorized()
+        throw createAuthRequiredError()
+      }
 
       if (!response.ok) {
         console.error("createSession failed", {
@@ -90,6 +90,10 @@ export function useChatStream() {
       const payload = (await response.json()) as { sessionId: string }
       return payload.sessionId
     } catch (error) {
+      if (isAuthRequiredError(error)) {
+        throw error
+      }
+
       console.error("createSession request error", error)
       throw new Error("服务没连上，请确认前端 :3000 和后端 :3001 都已启动。")
     }
@@ -100,6 +104,7 @@ export function useChatStream() {
     const url = `${apiBase}/api/chat`
     const response = await fetch(url, {
       method: "POST",
+      credentials: "include",
       headers: {
         "Content-Type": "application/json",
         Accept: "text/event-stream"
@@ -109,6 +114,11 @@ export function useChatStream() {
         message
       })
     })
+
+    if (response.status === 401) {
+      authStore.handleUnauthorized()
+      throw createAuthRequiredError()
+    }
 
     if (!response.ok || !response.body) {
       console.error("streamChat failed", {

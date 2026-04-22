@@ -7,11 +7,23 @@ export interface ChatMessage {
 }
 
 export interface PlanItem {
-  time: string
+  time?: string
   type: string
   title: string
-  desc: string
-  tips?: string
+  description?: string
+  desc?: string
+  durationMinutes?: number
+  location?: {
+    name: string
+    city?: string
+    lat?: number
+    lng?: number
+  }
+  estimatedCost?: {
+    amount: number
+    currency: string
+  }
+  tips?: string[] | string
 }
 
 export interface DailyPlan {
@@ -67,6 +79,31 @@ export interface PlanEvent {
   plan: Plan
 }
 
+export interface ItemOption {
+  id: string
+  label: string
+  description: string
+  patch: {
+    description?: string
+    time?: string
+    estimatedCost?: { amount: number; currency: string }
+  }
+}
+
+export interface ItemSelection {
+  dayNum: number
+  itemIndex: number
+  itemTitle: string
+  itemType: "transport" | "lodging"
+  question: string
+  options: ItemOption[]
+}
+
+export interface ItemOptionsEvent {
+  type: "item_options"
+  selections: ItemSelection[]
+}
+
 export interface DoneEvent {
   type: "done"
   messageId?: string
@@ -85,5 +122,6 @@ export type StreamEvent =
   | TokenEvent
   | PlanPartialEvent
   | PlanEvent
+  | ItemOptionsEvent
   | DoneEvent
   | ErrorEvent

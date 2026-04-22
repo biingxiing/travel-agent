@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import type { Plan } from "~/types/itinerary"
+import { storeToRefs } from "pinia"
+import type { Plan, PlanItem } from "~/types/itinerary"
+import { useChatStore } from "~/stores/chat"
 import type { ItineraryScore, ItemScore } from "~/utils/scoring"
 import { scorePlan, buildItemScoreMap, gradeColor } from "~/utils/scoring"
 
@@ -9,6 +11,17 @@ const props = defineProps<{
   agentStatus: string
   errorMessage: string
 }>()
+
+const chatStore = useChatStore()
+const { pendingSelections } = storeToRefs(chatStore)
+
+const resultStatus = computed(() => {
+  if (props.phase === "planning" || pendingSelections.value.length > 0) {
+    return props.agentStatus
+  }
+
+  return "Ready"
+})
 
 const itineraryScore = computed<ItineraryScore | null>(() =>
   props.plan ? scorePlan(props.plan) : null,
@@ -44,6 +57,16 @@ function itemIcon(type: string) {
   }
   return map[type] ?? "📍"
 }
+
+function itemDescription(item: PlanItem): string {
+  return item.description || item.desc || ""
+}
+
+function itemTips(item: PlanItem): string[] {
+  if (Array.isArray(item.tips)) return item.tips
+  if (typeof item.tips === "string" && item.tips) return [item.tips]
+  return []
+}
 </script>
 
 <template>
@@ -52,8 +75,8 @@ function itemIcon(type: string) {
       <div>
         <h2>行程结果卡片</h2>
       </div>
-      <span class="status-chip" :class="{ active: phase === 'planning' }">
-        {{ phase === "planning" ? agentStatus : "Ready" }}
+      <span class="status-chip" :class="{ active: phase === 'planning' || pendingSelections.length > 0 }">
+        {{ resultStatus }}
       </span>
     </div>
 
@@ -109,8 +132,8 @@ function itemIcon(type: string) {
           </span>
           <div class="result-item-body">
             <strong>{{ item.title }}</strong>
-            <p>{{ item.desc }}</p>
-            <small v-if="item.tips">{{ item.tips }}</small>
+            <p v-if="itemDescription(item)">{{ itemDescription(item) }}</p>
+            <small v-if="itemTips(item).length">{{ itemTips(item).join("；") }}</small>
           </div>
         </div>
       </article>
@@ -124,6 +147,15 @@ function itemIcon(type: string) {
 
       <div class="disclaimer-card">
         {{ plan.disclaimer }}
+      </div>
+
+      <div v-if="pendingSelections.length" class="pending-selections">
+        <p class="pending-title">请确认以下行程细节</p>
+        <ItemSelector
+          v-for="selection in pendingSelections"
+          :key="`${selection.dayNum}-${selection.itemIndex}`"
+          :selection="selection"
+        />
       </div>
     </div>
 

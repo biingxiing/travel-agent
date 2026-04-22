@@ -1,5 +1,5 @@
 import { defineStore } from "pinia"
-import type { ChatMessage, Plan, StreamEvent } from "~/types/itinerary"
+import type { ChatMessage, ItemOption, ItemSelection, Plan, StreamEvent } from "~/types/itinerary"
 
 const welcomeMessage: ChatMessage = {
   id: "assistant-welcome",
@@ -43,7 +43,8 @@ export const useChatStore = defineStore("chat", {
     currentMessageId: "",
     pendingAssistantText: "",
     messages: [welcomeMessage] as ChatMessage[],
-    plan: null as Plan | null
+    plan: null as Plan | null,
+    pendingSelections: [] as ItemSelection[]
   }),
   actions: {
     setSession(sessionId: string) {
@@ -58,6 +59,7 @@ export const useChatStore = defineStore("chat", {
       this.agentStatus = planningMessages.thinking
       this.streamSteps = []
       this.pendingAssistantText = ""
+      this.pendingSelections = []
       this.messages.push({
         id: `user-${Date.now()}`,
         role: "user",
@@ -93,15 +95,26 @@ export const useChatStore = defineStore("chat", {
       }
 
       if (event.type === "agent_step") {
-        this.agentStatus = planningMessages[event.status]
-        if (event.status === "thinking") {
-          this.appendStreamStep("已理解需求，正在拆解规划任务")
-        }
-        if (event.status === "start") {
-          this.appendStreamStep("已开始生成行程和预算建议")
-        }
-        if (event.status === "done") {
-          this.appendStreamStep("已完成规划，正在整理最终方案")
+        if (event.agent === "optimizer") {
+          if (event.status === "thinking") {
+            this.agentStatus = "正在查询可选方案…"
+            this.appendStreamStep("正在为交通和住宿生成可选方案")
+          }
+          if (event.status === "done") {
+            this.agentStatus = "方案已就绪，请确认选择"
+            this.appendStreamStep("可选方案已生成，请在右侧选择")
+          }
+        } else {
+          this.agentStatus = planningMessages[event.status]
+          if (event.status === "thinking") {
+            this.appendStreamStep("已理解需求，正在拆解规划任务")
+          }
+          if (event.status === "start") {
+            this.appendStreamStep("已开始生成行程和预算建议")
+          }
+          if (event.status === "done") {
+            this.appendStreamStep("已完成规划，正在整理最终方案")
+          }
         }
         return
       }
@@ -120,13 +133,19 @@ export const useChatStore = defineStore("chat", {
         this.plan = event.plan
         this.phase = "result"
         this.pendingAssistantText = ""
+        this.pendingSelections = []
         this.setAssistantContent(buildPlanSummary(event.plan))
         this.appendStreamStep("行程卡片已生成，可继续追问修改")
         return
       }
 
+      if (event.type === "item_options") {
+        this.pendingSelections = event.selections
+        return
+      }
+
       if (event.type === "done") {
-        this.agentStatus = "规划完成"
+        this.agentStatus = this.pendingSelections.length > 0 ? "方案已就绪，请确认选择" : "规划完成"
         if (!this.plan && this.pendingAssistantText.trim()) {
           this.setAssistantContent(
             looksLikeStructuredOutput(this.pendingAssistantText)
@@ -158,12 +177,38 @@ export const useChatStore = defineStore("chat", {
       this.agentStatus = "生成失败"
       this.setAssistantContent(message)
     },
+    applyItemSelection(dayNum: number, itemIndex: number, option: ItemOption) {
+      if (!this.plan) return
+
+      const day = this.plan.dailyPlans.find((dailyPlan) => dailyPlan.day === dayNum)
+      if (!day) return
+
+      const item = day.items[itemIndex]
+      if (!item) return
+
+      if (option.patch.description) {
+        item.description = option.patch.description
+        item.desc = option.patch.description
+      }
+      if (option.patch.time) {
+        item.time = option.patch.time
+      }
+      if (option.patch.estimatedCost) {
+        item.estimatedCost = option.patch.estimatedCost
+      }
+
+      this.pendingSelections = this.pendingSelections.filter(
+        (selection) => !(selection.dayNum === dayNum && selection.itemIndex === itemIndex),
+      )
+      this.agentStatus = this.pendingSelections.length > 0 ? "方案已就绪，请确认选择" : "规划完成"
+    },
     resetConversation() {
       this.phase = "idle"
       this.agentStatus = "准备开始"
       this.streamSteps = []
       this.errorMessage = ""
       this.plan = null
+      this.pendingSelections = []
       this.currentMessageId = ""
       this.pendingAssistantText = ""
       this.messages = [welcomeMessage]
