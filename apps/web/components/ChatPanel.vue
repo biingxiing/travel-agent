@@ -13,7 +13,6 @@ defineProps<{
   <section class="conversation-shell">
     <div class="panel-title">
       <div>
-        <p class="panel-kicker">Conversation</p>
         <h2>对话流</h2>
       </div>
       <span class="panel-badge">Live</span>

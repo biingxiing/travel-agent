@@ -1,23 +1,48 @@
 <script setup lang="ts">
 import type { Plan } from "~/types/itinerary"
+import type { ItineraryScore, ItemScore } from "~/utils/scoring"
+import { scorePlan, buildItemScoreMap, gradeColor } from "~/utils/scoring"
 
-defineProps<{
+const props = defineProps<{
   plan: Plan | null
   phase: "idle" | "planning" | "result" | "error"
   agentStatus: string
   errorMessage: string
 }>()
 
+const itineraryScore = computed<ItineraryScore | null>(() =>
+  props.plan ? scorePlan(props.plan) : null,
+)
+
+const itemScoreMap = computed<Map<string, ItemScore>>(() => {
+  if (!props.plan || !itineraryScore.value) return new Map()
+  return buildItemScoreMap(props.plan, itineraryScore.value)
+})
+
+function itemBadgeColor(dayNum: number, idx: number): string | null {
+  const scored = itemScoreMap.value.get(`${dayNum}-${idx}`)
+  if (!scored) return null
+  return gradeColor(scored.grade)
+}
+
+function itemBadgeTitle(dayNum: number, idx: number): string {
+  const scored = itemScoreMap.value.get(`${dayNum}-${idx}`)
+  if (!scored) return ''
+  const missing = scored.checks.filter((c) => !c.found).map((c) => c.label)
+  if (missing.length === 0) return `${scored.score}/100`
+  return `${scored.score}/100 · 缺少: ${missing.join('、')}`
+}
+
 function itemIcon(type: string) {
-  if (type.includes("food") || type.includes("餐")) {
-    return "🍜"
+  const map: Record<string, string> = {
+    transport: "✈",
+    lodging: "🏨",
+    attraction: "🎯",
+    activity: "🎪",
+    meal: "🍜",
+    note: "📌",
   }
-
-  if (type.includes("transport") || type.includes("交通") || type.includes("flight")) {
-    return "🛫"
-  }
-
-  return "📍"
+  return map[type] ?? "📍"
 }
 </script>
 
@@ -25,7 +50,6 @@ function itemIcon(type: string) {
   <section class="result-shell">
     <div class="panel-title">
       <div>
-        <p class="panel-kicker">Plan Output</p>
         <h2>行程结果卡片</h2>
       </div>
       <span class="status-chip" :class="{ active: phase === 'planning' }">
@@ -49,6 +73,9 @@ function itemIcon(type: string) {
         <button type="button" class="copy-button">📋 复制</button>
       </div>
 
+      <!-- Quality score -->
+      <ItineraryScore v-if="itineraryScore" :score="itineraryScore" />
+
       <div v-if="plan.estimatedBudget" class="budget-strip">
         <span>预算估算</span>
         <strong>{{ plan.estimatedBudget.currency }} {{ plan.estimatedBudget.amount }}</strong>
@@ -66,12 +93,20 @@ function itemIcon(type: string) {
         </div>
 
         <div
-          v-for="item in day.items"
+          v-for="(item, idx) in day.items"
           :key="`${day.day}-${item.time}-${item.title}`"
           class="result-day-item"
         >
           <span class="result-time">{{ item.time }}</span>
-          <span class="result-icon">{{ itemIcon(item.type) }}</span>
+          <span class="result-icon">
+            {{ itemIcon(item.type) }}
+            <span
+              v-if="itemBadgeColor(day.day, idx)"
+              class="item-score-dot"
+              :style="{ background: itemBadgeColor(day.day, idx) ?? undefined }"
+              :title="itemBadgeTitle(day.day, idx)"
+            />
+          </span>
           <div class="result-item-body">
             <strong>{{ item.title }}</strong>
             <p>{{ item.desc }}</p>

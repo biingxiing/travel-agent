@@ -1,6 +1,7 @@
 import { skillRegistry } from './skill-registry.js'
 import { agentRegistry } from './agent-registry.js'
 import { runPlannerAgent } from '../agents/planner.js'
+import { loadSkillFromDir } from './load-dir-skills.js'
 
 export function bootstrapRegistry(): void {
   // Install built-in skills
@@ -66,6 +67,12 @@ export function bootstrapRegistry(): void {
     },
     runPlannerAgent,
   )
+
+  const skillDirs = (process.env.SKILL_DIRS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
+  for (const dir of skillDirs) {
+    const skill = loadSkillFromDir(dir)
+    if (skill) skillRegistry.install(skill.manifest, skill.handler)
+  }
 
   console.log('[Bootstrap] Registry initialized with built-in agents and skills')
 }

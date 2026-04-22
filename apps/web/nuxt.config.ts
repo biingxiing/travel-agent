@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   },
   app: {
     head: {
-      title: "Travel Agent",
+      title: "旅行规划助手",
       meta: [
         {
           name: "viewport",

@@ -24,6 +24,7 @@
 html,
 body,
 #__nuxt {
+  height: 100%;
   min-height: 100%;
 }
 
@@ -46,10 +47,12 @@ input {
 .page-shell {
   max-width: 1280px;
   margin: 0 auto;
+  height: 100dvh;
   min-height: 100dvh;
   padding: 32px 24px 24px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .compact-header {
@@ -199,6 +202,7 @@ input {
   align-items: stretch;
   flex: 1;
   min-height: 0;
+  overflow: hidden;
 }
 
 .conversation-shell,
@@ -219,14 +223,6 @@ input {
   justify-content: space-between;
   gap: 16px;
   margin-bottom: 18px;
-}
-
-.panel-kicker {
-  margin: 0 0 6px;
-  color: var(--muted);
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
 }
 
 .panel-title h2 {
@@ -445,6 +441,149 @@ input {
 
 .result-icon {
   font-size: 18px;
+  position: relative;
+}
+
+/* Per-item score badge dot */
+.item-score-dot {
+  position: absolute;
+  top: -2px;
+  right: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: 1.5px solid white;
+}
+
+/* ─── Itinerary score panel ──────────────────────────────────────────────── */
+
+.score-panel {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--panel-soft);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.score-inner {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.score-ring-wrap {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.score-ring-svg {
+  width: 80px;
+  height: 80px;
+}
+
+.score-ring-track {
+  fill: none;
+  stroke: #e5e7eb;
+  stroke-width: 7;
+}
+
+.score-ring-fill {
+  fill: none;
+  stroke-width: 7;
+  stroke-linecap: round;
+  transform: rotate(-90deg);
+  transform-origin: 40px 40px;
+  transition: stroke-dashoffset 0.6s ease, stroke 0.4s ease;
+}
+
+.score-ring-number {
+  font-size: 18px;
+  font-weight: 700;
+  fill: var(--text);
+}
+
+.score-ring-grade {
+  font-size: 10px;
+  fill: var(--muted);
+}
+
+.score-ring-label {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.score-cats {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+
+.score-cat-row {
+  display: grid;
+  grid-template-columns: 52px 1fr 28px;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-cat-name {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.score-cat-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: #e5e7eb;
+  overflow: hidden;
+}
+
+.score-cat-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.score-cat-value {
+  font-size: 12px;
+  font-weight: 700;
+  text-align: right;
+}
+
+.score-cat-coverage .score-cat-name {
+  font-size: 11px;
+}
+
+.score-suggestions {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  border-top: 1px dashed var(--line);
+  padding-top: 10px;
+}
+
+.score-suggestions li {
+  display: flex;
+  gap: 6px;
+  font-size: 12px;
+  color: #92400e;
+  line-height: 1.5;
+}
+
+.score-suggest-icon {
+  flex-shrink: 0;
+  font-style: normal;
 }
 
 .result-item-body strong,
@@ -548,12 +687,15 @@ input {
 
 @media (max-width: 980px) {
   .page-shell {
+    height: auto;
     min-height: auto;
+    overflow: visible;
   }
 
   .main-grid {
     grid-template-columns: 1fr;
     flex: none;
+    overflow: visible;
   }
 
   .compact-header {

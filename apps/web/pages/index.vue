@@ -51,7 +51,7 @@ async function submitPrompt(value: string) {
 <template>
   <main class="page-shell">
     <section v-if="hasConversation" class="compact-header">
-      <div class="compact-brand">Travel Agent</div>
+      <div class="compact-brand">旅行规划助手</div>
       <p>继续追问、调整行程或补充偏好。</p>
     </section>
 
