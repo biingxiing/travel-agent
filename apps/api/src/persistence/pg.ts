@@ -1,5 +1,4 @@
 import { travelMemoryPgMigrationSql } from '@travel-agent/memory-pg'
-import type { SessionRestore, UpsertTripSession } from '@travel-agent/domain'
 import type { SessionState } from '@travel-agent/shared'
 import { SessionStateSchema } from '@travel-agent/shared'
 import pg from 'pg'
@@ -127,25 +126,3 @@ export async function deleteSession(id: string, userId: string): Promise<boolean
   return (r.rowCount ?? 0) > 0
 }
 
-// Backwards-compat shims for legacy routes/trips.ts; will be deleted in Phase 6.
-export async function loadRestoreSnapshot(_sessionId: string): Promise<SessionRestore | null> {
-  return null
-}
-export async function saveRestoreSnapshot(
-  sessionId: string,
-  payload: UpsertTripSession,
-): Promise<SessionRestore> {
-  return {
-    sessionId,
-    title: payload.title,
-    destination: payload.destination,
-    activePlanVersionId: payload.activePlanVersionId,
-    activePlanOptionId: payload.activePlanOptionId,
-    activePlanType: payload.activePlanType,
-    briefRevisionNo: payload.briefRevisionNo ?? 0,
-    lastUserIntent: payload.lastUserIntent,
-    latestBrief: payload.latestBrief,
-    options: payload.options ?? [],
-    updatedAt: payload.updatedAt ?? new Date().toISOString(),
-  }
-}
