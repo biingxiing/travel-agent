@@ -1628,7 +1628,7 @@ git commit -m "feat(web/react): ReactProgressBar with Sparkles + gradient fill +
 **Files:**
 - Create: `apps/web/components/react/ClarifyCard.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1697,7 +1697,7 @@ defineProps<{
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
