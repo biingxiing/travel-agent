@@ -13,6 +13,7 @@
     "dev:web": "pnpm --filter @travel-agent/web dev",
     "build": "pnpm --recursive build",
     "build:web": "pnpm --filter @travel-agent/web build",
+    "test:web": "pnpm --filter @travel-agent/web test",
     "db:migrate:memory": "node scripts/migrate-memory-pg.mjs",
     "smoke:auth": "node scripts/smoke-auth.mjs",
     "smoke:planner": "node scripts/smoke-planner.mjs",

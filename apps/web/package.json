@@ -8,12 +8,21 @@
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
-    "preview": "nuxt preview"
+    "preview": "nuxt preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@pinia/nuxt": "^0.10.1",
+    "lucide-vue-next": "^1.0.0",
+    "motion-v": "^2.2.1",
     "nuxt": "^3.17.3",
     "pinia": "^3.0.2",
-    "ufo": "^1.6.3"
+    "reka-ui": "^2.9.6",
+    "ufo": "^1.6.3",
+    "vue-sonner": "^2.0.9"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.5"
   }
 }

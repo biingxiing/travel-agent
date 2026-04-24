@@ -88,14 +88,14 @@ apps/web/
 - Create: `apps/web/vitest.config.ts`
 - Modify: `package.json` (repo root — test script)
 
-- [ ] **Step 1: Install runtime dependencies**
+- [x] **Step 1: Install runtime dependencies**
 
 ```bash
 pnpm --filter @travel-agent/web add reka-ui lucide-vue-next motion-v vue-sonner
 ```
 Expected: dependencies added to `apps/web/package.json`, lockfile updated.
 
-- [ ] **Step 2: Install dev dependencies**
+- [x] **Step 2: Install dev dependencies**
 
 ```bash
 pnpm --filter @travel-agent/web add -D vitest
@@ -103,7 +103,7 @@ pnpm --filter @travel-agent/web add -D vitest
 
 Note: Do NOT add `@vitest/coverage-v8` here — the repo root already has it as a dev dep; at the workspace level, it's hoisted.
 
-- [ ] **Step 3: Create `apps/web/vitest.config.ts`**
+- [x] **Step 3: Create `apps/web/vitest.config.ts`**
 
 ```ts
 import { defineConfig } from 'vitest/config'
@@ -124,7 +124,7 @@ export default defineConfig({
 })
 ```
 
-- [ ] **Step 4: Add test scripts**
+- [x] **Step 4: Add test scripts**
 
 In `apps/web/package.json`, under `"scripts"`:
 ```json
@@ -137,25 +137,25 @@ In repo-root `package.json`'s `"scripts"`:
 "test:web": "pnpm --filter @travel-agent/web test"
 ```
 
-- [ ] **Step 5: Update `nuxt.config.ts` to transpile motion-v**
+- [x] **Step 5: Update `nuxt.config.ts` to transpile motion-v**
 
 Add `build: { transpile: ['motion-v'] }` to the config object (merge with existing fields; do not remove anything). Keep all existing head/modules/runtimeConfig blocks.
 
-- [ ] **Step 6: Smoke-test vitest**
+- [x] **Step 6: Smoke-test vitest**
 
 ```bash
 pnpm --filter @travel-agent/web test
 ```
 Expected: `Test Files: 0 · Tests: 0 (passWithNoTests)`, exit 0.
 
-- [ ] **Step 7: Verify build still passes**
+- [x] **Step 7: Verify build still passes**
 
 ```bash
 pnpm build:web
 ```
 Expected: Nuxt build completes without errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```bash
 git add apps/web/package.json apps/web/vitest.config.ts apps/web/nuxt.config.ts package.json pnpm-lock.yaml
