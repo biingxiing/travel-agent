@@ -1,5 +1,7 @@
 import { defineStore } from "pinia"
+import type { ChatStreamEvent, ItineraryScoreSummary } from "@travel-agent/shared"
 import type { ChatMessage, ItemOption, ItemSelection, Plan, StreamEvent } from "~/types/itinerary"
+import { useWorkspaceStore } from "./workspace"
 
 const welcomeMessage: ChatMessage = {
   id: "assistant-welcome",
@@ -32,6 +34,98 @@ function buildPlanSummary(plan: Plan) {
   return `已为你生成 ${plan.days} 天 ${plan.travelers} 人的 ${plan.destination} 行程${budget}${preferenceText}。右侧可以直接查看每天安排，如果想调整告诉我就行。`
 }
 
+const CHAT_SESSION_STORAGE_KEY = "travel-agent-chat-state"
+
+interface PersistedChatState {
+  sessionId: string
+  draft: string
+  phase: "idle" | "planning" | "result" | "error"
+  agentStatus: string
+  streamSteps: string[]
+  errorMessage: string
+  messages: ChatMessage[]
+  plan: Plan | null
+  pendingSelections: ItemSelection[]
+}
+
+function canUseSessionStorage() {
+  return import.meta.client && typeof window !== "undefined" && typeof window.sessionStorage !== "undefined"
+}
+
+function persistChatState(state: PersistedChatState) {
+  if (!canUseSessionStorage()) {
+    return
+  }
+
+  window.sessionStorage.setItem(CHAT_SESSION_STORAGE_KEY, JSON.stringify(state))
+}
+
+function readPersistedChatState(): PersistedChatState | null {
+  if (!canUseSessionStorage()) {
+    return null
+  }
+
+  const raw = window.sessionStorage.getItem(CHAT_SESSION_STORAGE_KEY)
+
+  if (!raw) {
+    return null
+  }
+
+  try {
+    return JSON.parse(raw) as PersistedChatState
+  } catch {
+    window.sessionStorage.removeItem(CHAT_SESSION_STORAGE_KEY)
+    return null
+  }
+}
+
+function clearPersistedChatState() {
+  if (!canUseSessionStorage()) {
+    return
+  }
+
+  window.sessionStorage.removeItem(CHAT_SESSION_STORAGE_KEY)
+}
+
+function normalizeMessages(messages: ChatMessage[] | undefined) {
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return [welcomeMessage]
+  }
+
+  return messages.filter((message) => message && typeof message.id === "string" && typeof message.content === "string")
+}
+
+function sanitizePersistedState(payload: PersistedChatState) {
+  const messages = normalizeMessages(payload.messages).filter((message) =>
+    message.content.trim().length > 0 || message.id === welcomeMessage.id,
+  )
+  const plan = payload.plan ?? null
+  const hasPlan = Boolean(plan)
+  const nextPhase =
+    payload.phase === "planning"
+      ? hasPlan
+        ? "result"
+        : "idle"
+      : payload.phase
+
+  return {
+    sessionId: typeof payload.sessionId === "string" ? payload.sessionId : "",
+    draft: typeof payload.draft === "string" ? payload.draft : "",
+    phase: nextPhase,
+    agentStatus:
+      typeof payload.agentStatus === "string" && payload.agentStatus
+        ? payload.agentStatus
+        : hasPlan
+          ? "登录后继续调整行程"
+          : "准备开始",
+    streamSteps: Array.isArray(payload.streamSteps) ? payload.streamSteps.filter((item) => typeof item === "string") : [],
+    errorMessage: typeof payload.errorMessage === "string" ? payload.errorMessage : "",
+    messages: messages.length > 0 ? messages : [welcomeMessage],
+    plan,
+    pendingSelections: Array.isArray(payload.pendingSelections) ? payload.pendingSelections : [],
+  }
+}
+
 export const useChatStore = defineStore("chat", {
   state: () => ({
     sessionId: "",
@@ -44,14 +138,58 @@ export const useChatStore = defineStore("chat", {
     pendingAssistantText: "",
     messages: [welcomeMessage] as ChatMessage[],
     plan: null as Plan | null,
-    pendingSelections: [] as ItemSelection[]
+    pendingSelections: [] as ItemSelection[],
+    iteration: 0,
+    maxIterations: 10,
+    displayScore: null as number | null,
+    targetScore: 90,
+    loopStatus: null as 'evaluating' | 'refining' | null,
+    awaitingClarify: null as { question: string; reason: string } | null,
+    maxIterReached: null as { currentScore: number } | null,
+    canContinue: false
   }),
   actions: {
+    persistState() {
+      persistChatState({
+        sessionId: this.sessionId,
+        draft: this.draft,
+        phase: this.phase,
+        agentStatus: this.agentStatus,
+        streamSteps: this.streamSteps,
+        errorMessage: this.errorMessage,
+        messages: this.messages,
+        plan: this.plan,
+        pendingSelections: this.pendingSelections,
+      })
+    },
+    hydrateFromSessionStorage() {
+      const payload = readPersistedChatState()
+
+      if (!payload) {
+        return
+      }
+
+      const sanitized = sanitizePersistedState(payload)
+
+      this.sessionId = sanitized.sessionId
+      this.draft = sanitized.draft
+      this.phase = sanitized.phase
+      this.agentStatus = sanitized.agentStatus
+      this.streamSteps = sanitized.streamSteps
+      this.errorMessage = sanitized.errorMessage
+      this.messages = sanitized.messages
+      this.plan = sanitized.plan
+      this.pendingSelections = sanitized.pendingSelections
+      this.currentMessageId = ""
+      this.pendingAssistantText = ""
+    },
     setSession(sessionId: string) {
       this.sessionId = sessionId
+      this.persistState()
     },
     setDraft(value: string) {
       this.draft = value
+      this.persistState()
     },
     beginPlanning(content: string) {
       this.phase = "planning"
@@ -72,12 +210,14 @@ export const useChatStore = defineStore("chat", {
         content: ""
       })
       this.draft = ""
+      this.persistState()
     },
     setAssistantContent(content: string) {
       const current = this.messages.find((message) => message.id === this.currentMessageId)
 
       if (current) {
         current.content = content
+        this.persistState()
       }
     },
     appendAssistantToken(delta: string) {
@@ -88,9 +228,59 @@ export const useChatStore = defineStore("chat", {
         this.streamSteps.push(step)
       }
     },
+    handleStreamEvent(event: ChatStreamEvent) {
+      const ws = useWorkspaceStore()
+      switch (event.type) {
+        case 'session':
+          ws.sessionId = event.sessionId
+          break
+        case 'iteration_progress':
+          this.iteration = event.iteration
+          this.maxIterations = event.maxIterations
+          this.displayScore = event.currentScore
+          this.targetScore = event.targetScore
+          this.loopStatus = event.status
+          break
+        case 'score': {
+          const summary: ItineraryScoreSummary = {
+            overall: event.overall,
+            transport: event.transport,
+            lodging: event.lodging,
+            attraction: event.attraction,
+            iteration: event.iteration
+          }
+          ws.currentScore = summary
+          this.displayScore = event.overall
+          break
+        }
+        case 'plan':
+          ws.currentPlan = event.plan
+          this.awaitingClarify = null
+          this.maxIterReached = null
+          break
+        case 'clarify_needed':
+          this.awaitingClarify = { question: event.question, reason: event.reason }
+          this.canContinue = false
+          ws.status = 'awaiting_user'
+          break
+        case 'max_iter_reached':
+          this.maxIterReached = { currentScore: event.currentScore }
+          this.canContinue = true
+          ws.status = 'awaiting_user'
+          break
+        case 'done':
+          this.loopStatus = null
+          if (event.converged) {
+            this.canContinue = false
+            ws.status = 'converged'
+          }
+          break
+      }
+    },
     applyStreamEvent(event: StreamEvent) {
       if (event.type === "session") {
         this.sessionId = event.sessionId
+        this.persistState()
         return
       }
 
@@ -136,11 +326,13 @@ export const useChatStore = defineStore("chat", {
         this.pendingSelections = []
         this.setAssistantContent(buildPlanSummary(event.plan))
         this.appendStreamStep("行程卡片已生成，可继续追问修改")
+        this.persistState()
         return
       }
 
       if (event.type === "item_options") {
         this.pendingSelections = event.selections
+        this.persistState()
         return
       }
 
@@ -157,6 +349,7 @@ export const useChatStore = defineStore("chat", {
         if (this.phase !== "result") {
           this.phase = "idle"
         }
+        this.persistState()
         return
       }
 
@@ -165,17 +358,53 @@ export const useChatStore = defineStore("chat", {
         this.errorMessage = event.message
         this.agentStatus = "生成失败"
         this.setAssistantContent(event.message)
+        this.persistState()
       }
     },
     setInputError() {
       this.phase = "error"
       this.errorMessage = "告诉我你想去哪，我来帮你规划～"
+      this.persistState()
     },
     setRequestError(message: string) {
       this.phase = "error"
       this.errorMessage = message
       this.agentStatus = "生成失败"
       this.setAssistantContent(message)
+      this.persistState()
+    },
+    completePlannerResponse(message: string) {
+      this.phase = "result"
+      this.errorMessage = ""
+      this.agentStatus = "规划完成"
+      this.streamSteps = []
+      this.pendingAssistantText = ""
+      this.pendingSelections = []
+      this.setAssistantContent(message)
+      this.persistState()
+    },
+    handleAuthInterrupted() {
+      this.phase = this.plan ? "result" : "idle"
+      this.agentStatus = this.plan ? "登录后继续调整行程" : "登录后继续规划"
+      this.streamSteps = []
+      this.errorMessage = ""
+      this.pendingAssistantText = ""
+      if (this.currentMessageId) {
+        this.messages = this.messages.filter((message) => message.id !== this.currentMessageId)
+        this.currentMessageId = ""
+      }
+      this.persistState()
+    },
+    recoverPromptAfterAuth(content: string) {
+      this.handleAuthInterrupted()
+
+      const lastMessage = this.messages[this.messages.length - 1]
+      if (lastMessage?.role === "user" && lastMessage.content === content) {
+        this.messages.pop()
+      }
+
+      this.draft = content
+      this.persistState()
     },
     applyItemSelection(dayNum: number, itemIndex: number, option: ItemOption) {
       if (!this.plan) return
@@ -201,6 +430,7 @@ export const useChatStore = defineStore("chat", {
         (selection) => !(selection.dayNum === dayNum && selection.itemIndex === itemIndex),
       )
       this.agentStatus = this.pendingSelections.length > 0 ? "方案已就绪，请确认选择" : "规划完成"
+      this.persistState()
     },
     resetConversation() {
       this.phase = "idle"
@@ -214,6 +444,7 @@ export const useChatStore = defineStore("chat", {
       this.messages = [welcomeMessage]
       this.sessionId = ""
       this.draft = ""
+      clearPersistedChatState()
     }
   }
 })
