@@ -1,0 +1,180 @@
+import { randomUUID } from 'crypto'
+import { llm, PLANNER_MODEL } from '../llm/client.js'
+import { skillRegistry } from '../registry/skill-registry.js'
+import { PlanSchema, type Plan, type Message, type ChatStreamEvent, type EvaluationReport, type TripBrief } from '@travel-agent/shared'
+import type OpenAI from 'openai'
+import type { SkillManifest } from '../registry/types.js'
+
+const MAX_SKILL_ROUNDS = 4
+
+const SYSTEM_PROMPT_INITIAL = `你是专业旅行规划师。基于 TripBrief 和对话生成完整 JSON 行程。
+
+要求：
+- 信息充足：先用 1-2 句自然语言告诉用户你在规划，然后另起一行输出 \`\`\`json 代码块
+- 信息不足：只用自然语言追问，不输出 JSON
+- 行程每天至少 3 个活动，包括交通/住宿/景点
+- 跨城交通：必须调用 flyai skill，传 command="search-flight" 或 "search-train" + origin + destination + depDate
+- 住宿：必须调用 flyai skill 传 command="search-hotel" + destName + checkInDate + checkOutDate
+- POI / 景点：可以调 flyai 传 command="search-poi"
+- 拿到 flyai 真实结果后，把航班号/酒店名/房型/价格 直接写到对应 PlanItem 的 description
+- 景点 description 必须包含：开放时间(09:00-17:00 或全天)、门票(¥60/人 或 免费)、建议游览时长(2 小时)
+- 输出 JSON 严格符合 PlanSchema：title/destination/days/travelers/pace/dailyPlans/estimatedBudget/tips/disclaimer
+`
+
+const SYSTEM_PROMPT_REFINE = `你是旅行行程修补师。根据 critic 报告，**只修补**问题项，**不要重写整个行程**。
+
+要求：
+- 输入是当前行程和评估报告
+- 对每个 itemIssue：
+  - suggestedAction = call_flyai_flight/train/hotel/poi → 调用 flyai skill 拿真实数据，再改 description
+  - rewrite_description → 直接重写该 item.description（补开放时间/门票/时长 等）
+  - replace_item → 替换为更合理的 item
+  - reorder → 调整顺序
+- 对 globalIssues：在合理范围内调整（如换景点）
+- 输出**完整 plan JSON**（保留未改的部分），仅一个 \`\`\`json 代码块
+`
+
+function buildSkillTools(): OpenAI.Chat.ChatCompletionTool[] {
+  return skillRegistry.list().map((m: SkillManifest) => ({
+    type: 'function',
+    function: {
+      name: m.name,
+      description: m.description,
+      parameters: {
+        type: 'object',
+        properties: Object.fromEntries(Object.entries(m.parameters ?? {}).map(([k, p]) =>
+          [k, { type: p.type, description: p.description }])),
+        required: Object.entries(m.parameters ?? {}).filter(([, p]) => p.required).map(([k]) => k),
+        additionalProperties: false,
+      },
+    },
+  }))
+}
+
+function extractJsonCodeBlock(content: string): string | null {
+  const m = content.match(/```json\s*([\s\S]*?)\s*```/)
+  return m?.[1] ?? null
+}
+
+async function runWithToolLoop(
+  messages: OpenAI.Chat.ChatCompletionMessageParam[],
+  tools: OpenAI.Chat.ChatCompletionTool[],
+): Promise<{ content: string; messages: OpenAI.Chat.ChatCompletionMessageParam[] }> {
+  let current = [...messages]
+  for (let i = 0; i < MAX_SKILL_ROUNDS; i++) {
+    const resp = await llm.chat.completions.create({
+      model: PLANNER_MODEL, messages: current, tools, tool_choice: 'auto',
+      temperature: 0.3, stream: false,
+    })
+    const msg = resp.choices[0]?.message
+    if (!msg) return { content: '', messages: current }
+    const calls = msg.tool_calls ?? []
+    if (calls.length === 0) return { content: typeof msg.content === 'string' ? msg.content : '', messages: current }
+    current.push({ role: 'assistant', content: msg.content ?? null, tool_calls: calls })
+    for (const c of calls) {
+      let out: string
+      try {
+        const args = c.function.arguments ? JSON.parse(c.function.arguments) : {}
+        out = await skillRegistry.invoke(c.function.name, args as Record<string, unknown>)
+      } catch (err) {
+        out = JSON.stringify({ error: err instanceof Error ? err.message : String(err) })
+      }
+      current.push({ role: 'tool', tool_call_id: c.id, content: out })
+    }
+  }
+  return { content: '', messages: current }
+}
+
+export async function* runInitial(
+  brief: TripBrief, messages: Message[],
+): AsyncGenerator<ChatStreamEvent, Plan | null, void> {
+  const messageId = randomUUID()
+  const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: SYSTEM_PROMPT_INITIAL },
+    { role: 'user', content: `TripBrief:\n${JSON.stringify(brief)}` },
+    ...messages.filter((m) => m.role === 'user' || m.role === 'assistant').map((m) => ({
+      role: m.role as 'user' | 'assistant', content: m.content,
+    })),
+  ]
+
+  const tools = buildSkillTools()
+
+  // Phase A: tool round (non-streaming) to gather real flyai data
+  const prepared = await runWithToolLoop(llmMessages, tools)
+
+  // Phase B: stream final NL + JSON
+  const stream = await llm.chat.completions.create({
+    model: PLANNER_MODEL,
+    messages: [...prepared.messages, { role: 'system', content: '现在请基于上述 tool 结果生成最终行程，输出 NL + ```json 代码块。' }],
+    tools, tool_choice: 'none',
+    stream: true, stream_options: { include_usage: true }, temperature: 0.7,
+  })
+
+  let full = ''
+  let nlBuf = ''
+  let inJson = false
+  for await (const chunk of stream) {
+    const delta = chunk.choices[0]?.delta?.content ?? ''
+    if (!delta) continue
+    full += delta
+    if (!inJson) {
+      nlBuf += delta
+      const start = nlBuf.indexOf('```json')
+      if (start !== -1) {
+        inJson = true
+        const nlPart = nlBuf.slice(0, start).trimEnd()
+        if (nlPart) yield { type: 'token', delta: nlPart }
+        nlBuf = ''
+      } else {
+        const safe = nlBuf.length > 7 ? nlBuf.length - 7 : 0
+        if (safe > 0) {
+          yield { type: 'token', delta: nlBuf.slice(0, safe) }
+          nlBuf = nlBuf.slice(safe)
+        }
+      }
+    }
+  }
+  if (!inJson && nlBuf.trim()) yield { type: 'token', delta: nlBuf }
+
+  const json = extractJsonCodeBlock(full)
+  if (!json) {
+    // No JSON → it's a clarification / refusal NL response
+    yield { type: 'done', messageId }
+    return null
+  }
+  try {
+    const plan = PlanSchema.parse(JSON.parse(json))
+    yield { type: 'plan', plan }
+    yield { type: 'done', messageId }
+    return plan
+  } catch (err) {
+    yield { type: 'error', code: 'PLAN_PARSE_FAILED', message: err instanceof Error ? err.message : String(err) }
+    return null
+  }
+}
+
+export async function runRefine(
+  current: Plan, report: EvaluationReport, brief: TripBrief,
+): Promise<Plan> {
+  const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+    { role: 'system', content: SYSTEM_PROMPT_REFINE },
+    { role: 'user', content: [
+      `TripBrief:\n${JSON.stringify(brief)}`,
+      `\nCurrentPlan:\n${JSON.stringify(current)}`,
+      `\nEvaluationReport:\n${JSON.stringify({
+        combined: report.combined,
+        itemIssues: report.itemIssues,
+        globalIssues: report.globalIssues,
+      })}`,
+    ].join('\n') },
+  ]
+  const tools = buildSkillTools()
+  const prepared = await runWithToolLoop(llmMessages, tools)
+  const json = extractJsonCodeBlock(prepared.content) ?? prepared.content
+  try {
+    return PlanSchema.parse(JSON.parse(json))
+  } catch (err) {
+    console.warn('[Generator.refine] Parse failed, returning original:', err)
+    return current
+  }
+}
