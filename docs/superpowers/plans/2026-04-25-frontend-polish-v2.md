@@ -460,7 +460,7 @@ git commit -m "feat(web): wire vue-sonner Toaster with \$toast plugin"
 - Create: `apps/web/utils/poi-visual.ts`
 - Create: `apps/web/utils/poi-visual.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `apps/web/utils/poi-visual.test.ts`:
 
@@ -523,13 +523,13 @@ describe('poiVisualForType', () => {
 })
 ```
 
-- [ ] **Step 2: Run — FAIL**
+- [x] **Step 2: Run — FAIL**
 
 ```bash
 pnpm --filter @travel-agent/web test utils/poi-visual.test.ts
 ```
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 export interface PoiVisual {
@@ -554,11 +554,11 @@ export function poiVisualForType(type: string | undefined | null): PoiVisual {
 }
 ```
 
-- [ ] **Step 4: Run — PASS**
+- [x] **Step 4: Run — PASS**
 
 Expected: 8 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/utils/poi-visual.ts apps/web/utils/poi-visual.test.ts
