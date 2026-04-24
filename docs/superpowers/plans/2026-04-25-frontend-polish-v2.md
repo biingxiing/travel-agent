@@ -262,7 +262,7 @@ git commit -m "feat(web): extend CSS tokens (display scale, gradients, artifact 
 - Create: `apps/web/composables/useMotion.ts`
 - Create: `apps/web/composables/useMotion.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Create `apps/web/composables/useMotion.test.ts`:
 
@@ -302,14 +302,14 @@ describe('motionPresets', () => {
 })
 ```
 
-- [ ] **Step 2: Run test — FAIL**
+- [x] **Step 2: Run test — FAIL**
 
 ```bash
 pnpm --filter @travel-agent/web test composables/useMotion.test.ts
 ```
 Expected: FAIL with "Cannot find module './useMotion'".
 
-- [ ] **Step 3: Implement `useMotion.ts`**
+- [x] **Step 3: Implement `useMotion.ts`**
 
 ```ts
 // Named motion presets used across the app. Values are expressed in the
@@ -345,14 +345,14 @@ export const motionPresets = {
 export type MotionPresetName = keyof typeof motionPresets
 ```
 
-- [ ] **Step 4: Run test — PASS**
+- [x] **Step 4: Run test — PASS**
 
 ```bash
 pnpm --filter @travel-agent/web test composables/useMotion.test.ts
 ```
 Expected: 6 tests pass.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/composables/useMotion.ts apps/web/composables/useMotion.test.ts
