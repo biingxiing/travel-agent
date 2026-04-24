@@ -6,6 +6,9 @@ import HeroPlannerCard from "~/components/HeroPlannerCard.vue"
 import PlanningPreview from "~/components/PlanningPreview.vue"
 import PromptComposer from "~/components/PromptComposer.vue"
 import TripHistoryGrid from "~/components/TripHistoryGrid.vue"
+import ClarifyCard from "~/components/react/ClarifyCard.vue"
+import MaxIterCard from "~/components/react/MaxIterCard.vue"
+import ReactProgressBar from "~/components/react/ReactProgressBar.vue"
 import DropdownMenu, { DropdownMenuItem, DropdownMenuSeparator } from "~/components/ui/DropdownMenu.vue"
 import { useAuthApi } from "~/composables/useAuthApi"
 import { useChatStream } from "~/composables/useChatStream"
@@ -520,44 +523,27 @@ onBeforeUnmount(() => {
     </template>
 
     <template v-else>
-      <!-- ReAct progress bar -->
-      <div v-if="loopStatus" class="react-progress">
-        <div class="react-progress-head">
-          <span class="react-progress-label">
-            {{ loopStatus === 'evaluating'
-              ? 'AI 正在评估当前方案…'
-              : `第 ${iteration} / ${maxIterations} 轮优化中` }}
-          </span>
-          <span v-if="displayScore !== null" class="react-progress-score">
-            {{ displayScore }} / {{ targetScore }}
-          </span>
-        </div>
-        <progress
-          class="react-progress-bar"
-          :value="displayScore ?? 0"
-          :max="targetScore"
-        ></progress>
-      </div>
-
-      <!-- Clarify question -->
-      <div v-if="awaitingClarify" class="clarify-card">
-        <p class="clarify-kicker">需要补充信息</p>
-        <p class="clarify-question">{{ awaitingClarify.question }}</p>
-        <p class="clarify-hint">在下方对话框中回复，方案将继续生成。</p>
-      </div>
-
-      <!-- Continue optimization button -->
-      <div v-if="canContinue && maxIterReached" class="continue-card">
-        <div class="continue-card-text">
-          <p class="continue-card-title">已优化 {{ maxIterations }} 轮</p>
-          <p class="continue-card-meta">
-            当前 {{ maxIterReached.currentScore }} 分（目标 {{ targetScore }}），是否继续优化？
-          </p>
-        </div>
-        <button type="button" class="continue-button" @click="onContinue">
-          继续优化
-        </button>
-      </div>
+      <!-- ReAct loop UI (mutually exclusive) -->
+      <ReactProgressBar
+        v-if="loopStatus"
+        :loop-status="loopStatus"
+        :iteration="iteration"
+        :max-iterations="maxIterations"
+        :display-score="displayScore"
+        :target-score="targetScore"
+      />
+      <ClarifyCard
+        v-else-if="awaitingClarify"
+        :question="awaitingClarify.question"
+        :reason="awaitingClarify.reason"
+      />
+      <MaxIterCard
+        v-else-if="canContinue && maxIterReached"
+        :max-iterations="maxIterations"
+        :current-score="maxIterReached.currentScore"
+        :target-score="targetScore"
+        @continue="onContinue"
+      />
 
       <div
         ref="mainSectionRef"
@@ -646,160 +632,8 @@ onBeforeUnmount(() => {
   padding: 8px 0 40px;
 }
 
-.react-progress {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--brand-purple);
-  border-radius: var(--r-md);
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  box-shadow: var(--shadow-sm);
-}
-
-.react-progress-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.react-progress-label {
-  font-family: var(--font-display);
-  font-size: 13.5px;
-  color: var(--text);
-  font-weight: 600;
-}
-
-.react-progress-score {
-  font-family: var(--font-mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 13px;
-  color: var(--brand-purple);
-}
-
-.react-progress-bar {
-  appearance: none;
-  width: 100%;
-  height: 6px;
-  border: 0;
-  border-radius: 999px;
-  background: var(--brand-purple-soft);
-  overflow: hidden;
-}
-
-.react-progress-bar::-webkit-progress-bar {
-  background: var(--brand-purple-soft);
-  border-radius: 999px;
-}
-
-.react-progress-bar::-webkit-progress-value {
-  background: var(--brand-gradient, var(--brand-purple));
-  border-radius: 999px;
-  transition: width var(--dur-fast, 0.2s) var(--ease-out, ease);
-}
-
-.react-progress-bar::-moz-progress-bar {
-  background: var(--brand-purple);
-  border-radius: 999px;
-}
-
-.clarify-card {
-  background: var(--brand-blue-soft);
-  border: 1px solid var(--brand-blue-border);
-  border-left: 3px solid var(--brand-blue);
-  border-radius: var(--r-md);
-  padding: 14px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.clarify-kicker {
-  font-family: var(--font-mono);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--brand-blue-deep);
-  margin: 0;
-}
-
-.clarify-question {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 15px;
-  color: var(--text);
-  margin: 0;
-  line-height: 1.45;
-}
-
-.clarify-hint {
-  font-family: var(--font-body);
-  font-size: 12.5px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.continue-card {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border);
-  border-left: 3px solid var(--brand-purple);
-  border-radius: var(--r-md);
-  padding: 14px 16px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  box-shadow: var(--shadow-sm);
-}
-
-.continue-card-text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  min-width: 0;
-}
-
-.continue-card-title {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--text);
-  margin: 0;
-}
-
-.continue-card-meta {
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--text-muted);
-  margin: 0;
-}
-
-.continue-button {
-  appearance: none;
-  background: var(--brand-gradient, var(--brand-purple));
-  color: var(--text-inverse, #fff);
-  border: 0;
-  border-radius: var(--r-md);
-  padding: 10px 20px;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  box-shadow: var(--shadow-brand, var(--shadow-sm));
-  transition: transform var(--dur-fast, 0.2s) var(--ease-out, ease);
-  white-space: nowrap;
-}
-
-.continue-button:hover {
-  transform: translateY(-1px);
-}
-
 @media (max-width: 640px) {
   .landing-stack { gap: 22px; padding-bottom: 24px; }
-  .continue-card { flex-direction: column; align-items: stretch; }
-  .continue-button { width: 100%; }
 }
 
 .page-breadcrumb {

@@ -3135,7 +3135,7 @@ git commit -m "feat(web/plan): Day timeline with gradient-badge POI cards + hove
 **Files:**
 - Modify: `apps/web/pages/index.vue`
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports**
 
 ```ts
 import ReactProgressBar from '~/components/react/ReactProgressBar.vue'
@@ -3143,7 +3143,7 @@ import ClarifyCard from '~/components/react/ClarifyCard.vue'
 import MaxIterCard from '~/components/react/MaxIterCard.vue'
 ```
 
-- [ ] **Step 2: Replace `.react-progress` / `.clarify-card` / `.continue-card` blocks in the template**
+- [x] **Step 2: Replace `.react-progress` / `.clarify-card` / `.continue-card` blocks in the template**
 
 Find the three existing `<div v-if="loopStatus" class="react-progress">...`, `<div v-if="awaitingClarify" class="clarify-card">...`, and `<div v-if="canContinue && maxIterReached" class="continue-card">...` blocks. Replace all three with:
 
@@ -3173,7 +3173,7 @@ Find the three existing `<div v-if="loopStatus" class="react-progress">...`, `<d
 
 The three cards are now mutually exclusive via `v-else-if`.
 
-- [ ] **Step 3: Remove the obsolete scoped styles**
+- [x] **Step 3: Remove the obsolete scoped styles**
 
 From `pages/index.vue`'s scoped `<style>` block, delete the rules for:
 - `.react-progress`, `.react-progress-head`, `.react-progress-label`, `.react-progress-score`, `.react-progress-bar`, and any pseudo-elements on them
@@ -3182,7 +3182,7 @@ From `pages/index.vue`'s scoped `<style>` block, delete the rules for:
 
 The styles now live inside each component.
 
-- [ ] **Step 4: Ensure `onContinue` still exists**
+- [x] **Step 4: Ensure `onContinue` still exists**
 
 Verify there's an existing `function onContinue()` in `<script setup>`. If not, add:
 
@@ -3195,7 +3195,7 @@ function onContinue() {
 }
 ```
 
-- [ ] **Step 5: Verify build + visual**
+- [x] **Step 5: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -3203,7 +3203,7 @@ pnpm build:web
 
 Dev + Playwright: trigger a planning request. Confirm the ReactProgressBar appears during evaluation/refinement. For clarify testing, you may need a question-producing prompt; use manual console to set `chatStore.awaitingClarify = { question: 'test', reason: 'test' }` to visual-check the card.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/pages/index.vue
