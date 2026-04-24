@@ -792,7 +792,7 @@ git commit -m "feat(web): add relative-time util (刚刚 / N 分钟/小时/天�
 **Files:**
 - Create: `apps/web/components/ui/Tooltip.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -852,13 +852,13 @@ defineProps<{
 </style>
 ```
 
-- [ ] **Step 2: Verify build**
+- [x] **Step 2: Verify build**
 
 ```bash
 pnpm build:web
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```bash
 git add apps/web/components/ui/Tooltip.vue
