@@ -8,10 +8,24 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "pnpm --parallel --filter './apps/*' dev",
+    "dev": "node scripts/dev.mjs",
     "dev:api": "pnpm --filter @travel-agent/api dev",
     "dev:web": "pnpm --filter @travel-agent/web dev",
     "build": "pnpm --recursive build",
-    "build:web": "pnpm --filter @travel-agent/web build"
+    "build:web": "pnpm --filter @travel-agent/web build",
+    "db:migrate:memory": "node scripts/migrate-memory-pg.mjs",
+    "smoke:auth": "node scripts/smoke-auth.mjs",
+    "smoke:planner": "node scripts/smoke-planner.mjs",
+    "smoke:planner:guangdong": "playwright test tests/e2e/planner-guangdong-family.spec.js --config=playwright.config.cjs --reporter=line",
+    "smoke:auth:ui": "playwright test tests/e2e/auth-ui.spec.js --config=playwright.config.cjs --reporter=line",
+    "smoke:restore:ui": "playwright test tests/e2e/session-restore.spec.js --config=playwright.config.cjs --reporter=line",
+    "smoke:planner:ui": "playwright test tests/e2e/planner-flow.spec.js --config=playwright.config.cjs --reporter=line",
+    "smoke:planner:states": "playwright test tests/e2e/planner-states.spec.js --config=playwright.config.cjs --reporter=line"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1",
+    "@vitest/coverage-v8": "^4.1.5",
+    "pg": "^8.16.3",
+    "vitest": "^4.1.5"
   }
 }
