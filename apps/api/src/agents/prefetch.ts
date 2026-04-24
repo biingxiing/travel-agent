@@ -45,6 +45,10 @@ function truncate(text: string, max: number): string {
   return `${text.slice(0, max)}\n…(已截断 ${text.length - max} 字符)`
 }
 
+function isRateLimitError(msg: string): boolean {
+  return /\b429\b|rate[ _-]?limit/i.test(msg)
+}
+
 async function tryInvoke(
   args: Record<string, unknown>,
   label: string,
@@ -54,6 +58,18 @@ async function tryInvoke(
     return `真实${label}数据 (flyai ${args.command} args=${JSON.stringify(args)}):\n${truncate(out, MAX_ENTRY_BODY_CHARS)}`
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
+    if (isRateLimitError(msg)) {
+      console.warn(`[Prefetch] flyai ${args.command} hit 429, retrying after 3s`)
+      await new Promise((r) => setTimeout(r, 3000))
+      try {
+        const out = await skillRegistry.invoke(FLYAI_NAME, args)
+        return `真实${label}数据 (flyai ${args.command} args=${JSON.stringify(args)}):\n${truncate(out, MAX_ENTRY_BODY_CHARS)}`
+      } catch (err2) {
+        const msg2 = err2 instanceof Error ? err2.message : String(err2)
+        console.warn(`[Prefetch] flyai ${args.command} failed after retry, skipping: ${msg2}`)
+        return null
+      }
+    }
     console.warn(`[Prefetch] flyai ${args.command} failed, skipping: ${msg}`)
     return null
   }
@@ -96,7 +112,7 @@ export async function prefetchFlyaiContext(
   if (brief.destination) {
     tasks.push(tryInvoke({
       command: 'search-poi',
-      destName: brief.destination,
+      cityName: brief.destination,
     }, '景点'))
   }
 
