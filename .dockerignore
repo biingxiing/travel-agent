@@ -6,4 +6,10 @@ dist
 .output
 **/node_modules
 **/dist
+**/.nuxt
+**/.nuxt_tmp_*
+**/.output
+**/.output_tmp_*
+.tmp-pw
+test-results
 apps/api/.env

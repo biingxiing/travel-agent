@@ -10,8 +10,13 @@ services:
       OPENAI_MODEL_FAST: ${OPENAI_MODEL_FAST:-codex-mini-latest}
       PORT: 3001
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      AUTH_USERNAME: ${AUTH_USERNAME}
+      AUTH_PASSWORD: ${AUTH_PASSWORD}
+      AUTH_COOKIE_SECRET: ${AUTH_COOKIE_SECRET}
+      AUTH_COOKIE_NAME: ${AUTH_COOKIE_NAME:-travel_agent_auth}
+      DATABASE_URL: ${DATABASE_URL:-}
     ports:
-      - "${API_PORT:-3001}:3001"
+      - "${API_BIND_HOST:-127.0.0.1}:${API_PORT:-3001}:3001"
     volumes:
       - ./plugins:/app/plugins
     restart: unless-stopped
@@ -22,10 +27,33 @@ services:
       retries: 5
       start_period: 10s
 
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    environment:
+      NUXT_PUBLIC_API_BASE: ${NUXT_PUBLIC_API_BASE:-}
+      NITRO_HOST: 0.0.0.0
+      NITRO_PORT: 3000
+    expose:
+      - "3000"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/ >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
   caddy:
     image: caddy:2.8-alpine
     depends_on:
       api:
+        condition: service_healthy
+      web:
         condition: service_healthy
     ports:
       - "${PUBLIC_HTTP_PORT:-8080}:80"

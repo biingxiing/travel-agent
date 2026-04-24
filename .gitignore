@@ -3,5 +3,28 @@ node_modules
 dist
 .nuxt
 .output
+.tmp-pw
+playwright-report
+test-results
 plugins/*
 !plugins/.gitkeep
+.superpowers/
+
+# Local tool / IDE state
+.claude/
+.playwright-mcp/
+.vscode/
+.idea/
+.DS_Store
+
+# Scratch / design artifacts (not committed)
+codex-write-test.txt
+/redesign-*.png
+*.local.png
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*

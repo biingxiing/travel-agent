@@ -5,7 +5,8 @@ export const useAuthStore = defineStore("auth", {
   state: () => ({
     status: "checking" as "checking" | "authenticated" | "anonymous",
     username: "",
-    errorMessage: ""
+    errorMessage: "",
+    redirectPath: "/"
   }),
   getters: {
     isAuthenticated: (state) => state.status === "authenticated"
@@ -20,10 +21,11 @@ export const useAuthStore = defineStore("auth", {
       this.username = username
       this.errorMessage = ""
     },
-    setAnonymous(message = "") {
+    setAnonymous(message = "", redirectPath = this.redirectPath || "/") {
       this.status = "anonymous"
       this.username = ""
       this.errorMessage = message
+      this.redirectPath = redirectPath || "/"
     },
     setError(message: string) {
       this.errorMessage = message
@@ -31,9 +33,17 @@ export const useAuthStore = defineStore("auth", {
     clearError() {
       this.errorMessage = ""
     },
-    handleUnauthorized(message = "登录已失效，请重新登录。") {
-      this.setAnonymous(message)
-      useChatStore().resetConversation()
+    setRedirectPath(path: string) {
+      this.redirectPath = path || "/"
+    },
+    consumeRedirectPath(defaultPath = "/") {
+      const path = this.redirectPath || defaultPath
+      this.redirectPath = defaultPath || "/"
+      return path
+    },
+    handleUnauthorized(message = "登录已失效，请重新登录。", redirectPath = this.redirectPath || "/") {
+      this.setAnonymous(message, redirectPath)
+      useChatStore().handleAuthInterrupted()
     }
   }
 })

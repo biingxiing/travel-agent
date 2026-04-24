@@ -17,5 +17,7 @@ export const authMiddleware: MiddlewareHandler = async (c, next) => {
     return c.json({ error: 'Unauthorized' }, 401)
   }
 
+  c.set('userId', username)
+
   await next()
 }

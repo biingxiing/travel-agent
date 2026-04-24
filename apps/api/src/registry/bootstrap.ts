@@ -1,6 +1,4 @@
 import { skillRegistry } from './skill-registry.js'
-import { agentRegistry } from './agent-registry.js'
-import { runPlannerAgent } from '../agents/planner.js'
 import { loadSkillFromDir } from './load-dir-skills.js'
 
 export function bootstrapRegistry(): void {
@@ -55,17 +53,6 @@ export function bootstrapRegistry(): void {
     async (args) => {
       return JSON.stringify({ skill: 'poi', args, note: 'Handled by Planner Agent via LLM' })
     },
-  )
-
-  // Register built-in agents
-  agentRegistry.register(
-    {
-      name: 'planner',
-      version: '1.0.0',
-      description: 'Planner Agent：理解旅行需求、追问信息、生成结构化行程规划',
-      requiredSkills: ['itinerary', 'budget', 'poi'],
-    },
-    runPlannerAgent,
   )
 
   const skillDirs = (process.env.SKILL_DIRS ?? '').split(',').map((s) => s.trim()).filter(Boolean)
