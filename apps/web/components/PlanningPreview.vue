@@ -637,19 +637,8 @@ void currentScore
   animation: fadeRise var(--dur-slow) var(--ease-out) both;
 }
 
-.day-head { display: flex; flex-direction: column; gap: 4px; }
-
-.day-kicker { color: var(--brand-purple); }
-
-.day-theme {
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: -0.01em;
-  line-height: 1.3;
-  color: var(--text);
-  margin: 2px 0 0;
-}
+/* Legacy .day-head / .day-kicker / .day-theme removed — superseded by
+   the `plan-day` + `day-head` rules further below (Task 25 redesign). */
 
 .card-rule {
   border: 0;
@@ -870,12 +859,13 @@ void currentScore
 
 .plan-hero-slab {
   position: relative;
-  overflow: hidden;
+  flex: none;
   padding: 18px 20px 20px;
   margin-bottom: 14px;
   background: var(--gradient-aurora-soft), var(--bg-subtle);
   border: 1px solid var(--border);
   border-radius: var(--r-md);
+  overflow: hidden;
 }
 
 .plan-hero-title {
@@ -884,8 +874,10 @@ void currentScore
   font-size: var(--type-display-lg-size);
   font-weight: 700;
   letter-spacing: var(--type-display-lg-tracking);
-  line-height: 1.15;
+  line-height: 1.18;
   color: var(--text);
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .plan-hero-sub {
   margin: 0;
