@@ -1712,7 +1712,7 @@ git commit -m "feat(web/react): ClarifyCard for LLM clarification requests"
 **Files:**
 - Create: `apps/web/components/react/MaxIterCard.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1810,7 +1810,7 @@ defineEmits<{ continue: [] }>()
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
