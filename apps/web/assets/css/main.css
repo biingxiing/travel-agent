@@ -52,6 +52,23 @@
   --font-body:    "Inter", "PingFang SC", "Source Han Sans SC", "Helvetica Neue", Arial, system-ui, sans-serif;
   --font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
+  /* Type scale (display + body hierarchy) */
+  --type-display-xl-size:     clamp(44px, 5.5vw, 64px);
+  --type-display-xl-tracking: -0.03em;
+  --type-display-lg-size:     clamp(32px, 3.8vw, 44px);
+  --type-display-lg-tracking: -0.025em;
+  --type-display-md-size:     30px;
+  --type-display-md-tracking: -0.02em;
+  --type-heading-size:        20px;
+  --type-heading-tracking:    -0.01em;
+  --type-subhead-size:        16px;
+  --type-body-lg-size:        15px;
+  --type-body-size:           14px;
+  --type-body-sm-size:        13px;
+  --type-caption-size:        12px;
+  --type-mono-xs-size:        11px;
+  --type-mono-xs-tracking:    0.08em;
+
   /* Radii */
   --r-xs: 6px;
   --r-sm: 8px;
@@ -71,6 +88,25 @@
   --shadow-lift: 0 12px 32px rgba(17, 24, 39, 0.1);
   --shadow-page: 0 8px 32px rgba(17, 24, 39, 0.08);
   --shadow-brand: 0 8px 20px rgba(79, 124, 255, 0.25);
+
+  /* Elevated surfaces + named gradients */
+  --border-subtle-2:   #F8F9FB;
+  --bg-glass:          rgba(255, 255, 255, 0.92);
+  --shadow-artifact:   0 20px 60px rgba(17, 24, 39, 0.10);
+  --shadow-card-hover: 0 8px 24px rgba(17, 24, 39, 0.08);
+
+  --gradient-brand: linear-gradient(135deg, #7B5BFF 0%, #4F7CFF 100%);
+  --gradient-aurora-soft:
+    radial-gradient(600px 240px at 15% 10%, rgba(123, 91, 255, 0.12), transparent 60%),
+    radial-gradient(500px 220px at 85% 80%, rgba(79, 124, 255, 0.10), transparent 60%);
+  --gradient-grid-mesh:
+    linear-gradient(rgba(17, 24, 39, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(17, 24, 39, 0.04) 1px, transparent 1px);
+
+  --gradient-poi-hotel:   linear-gradient(135deg, #A78BFA, #7C3AED);
+  --gradient-poi-food:    linear-gradient(135deg, #FCA5A5, #DC2626);
+  --gradient-poi-poi:     linear-gradient(135deg, #6EE7B7, #059669);
+  --gradient-poi-transit: linear-gradient(135deg, #93C5FD, #2563EB);
 
   /* ── Legacy shims ─────────────────────────────────────────────────────────
      Older component markup still consumes paper/ink/moss/clay variables.
@@ -152,7 +188,7 @@ select {
 
 :focus-visible {
   outline: 2px solid var(--brand-blue);
-  outline-offset: 2px;
+  outline-offset: -1px;
   border-radius: 4px;
 }
 
@@ -2414,3 +2450,16 @@ body.is-panel-resizing { user-select: none; }
 
   .compact-brand { font-size: 18px; }
 }
+
+/* ───────────────────────────────────────────────────────────────────────────
+   Utility primitives added during frontend-polish v2
+   ─────────────────────────────────────────────────────────────────────────── */
+
+.currency-unit {
+  font-size: 0.72em;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-right: 2px;
+}
+
+.tabular { font-variant-numeric: tabular-nums; }

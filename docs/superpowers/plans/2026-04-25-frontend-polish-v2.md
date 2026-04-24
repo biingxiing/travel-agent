@@ -169,7 +169,7 @@ git commit -m "feat(web): install reka-ui, lucide, motion-v, vue-sonner and conf
 **Files:**
 - Modify: `apps/web/assets/css/main.css` (the `:root` block; then append utilities at EOF)
 
-- [ ] **Step 1: Add display type scale tokens**
+- [x] **Step 1: Add display type scale tokens**
 
 Inside the existing `:root { ... }` block, **after** the `/* Type */` section and **before** `/* Radii */`, insert:
 
@@ -192,7 +192,7 @@ Inside the existing `:root { ... }` block, **after** the `/* Type */` section an
   --type-mono-xs-tracking:    0.08em;
 ```
 
-- [ ] **Step 2: Add new surface/shadow/gradient tokens**
+- [x] **Step 2: Add new surface/shadow/gradient tokens**
 
 In the same `:root`, **after** the existing `--shadow-brand` line, add:
 
@@ -219,7 +219,7 @@ In the same `:root`, **after** the existing `--shadow-brand` line, add:
 
 Note: the existing `--brand-gradient` token stays (existing consumers); `--gradient-brand` is a new alias with the same value.
 
-- [ ] **Step 3: Fix focus-visible + add utility classes**
+- [x] **Step 3: Fix focus-visible + add utility classes**
 
 Find the existing `:focus-visible` rule (currently around lines 153-157). Change `outline-offset: 2px;` to `outline-offset: -1px;`.
 
@@ -240,14 +240,14 @@ Then at the very end of the file, append:
 .tabular { font-variant-numeric: tabular-nums; }
 ```
 
-- [ ] **Step 4: Verify build succeeds**
+- [x] **Step 4: Verify build succeeds**
 
 ```bash
 pnpm build:web
 ```
 Expected: no errors.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/assets/css/main.css
