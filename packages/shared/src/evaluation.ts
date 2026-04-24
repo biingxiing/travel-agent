@@ -24,7 +24,7 @@ export const ItemIssueSchema = z.object({
 export type ItemIssue = z.infer<typeof ItemIssueSchema>
 
 export const CriticReportSchema = z.object({
-  qualityScore: z.number().min(0).max(100),
+  qualityScore: z.number().min(0).max(100).default(0),
   blockers: z.array(z.object({
     type: BlockerTypeEnum,
     message: z.string(),

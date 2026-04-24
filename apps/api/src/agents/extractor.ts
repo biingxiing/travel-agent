@@ -8,11 +8,42 @@ const IntentEnum = z.enum(['new', 'refine', 'clarify-answer', 'continue'])
 export type ExtractIntent = z.infer<typeof IntentEnum>
 
 const ExtractorOutputSchema = z.object({
-  brief: TripBriefSchema.partial(),
-  intent: IntentEnum,
+  brief: TripBriefSchema.partial().default({}),
+  intent: IntentEnum.default('new'),
   changedFields: z.array(z.string()).default([]),
 })
 export type ExtractorOutput = z.infer<typeof ExtractorOutputSchema>
+
+const DAYS_REGEXES = [/(\d+)\s*天/, /(\d+)\s*-?\s*day/i]
+// stop at common trailing verbs (玩/游/旅/度/看) or punctuation/digits/space
+const DESTINATION_REGEXES = [
+  /(?:去|到|前往)\s*([一-龥]{2,8}?)(?=玩|游|旅|度|看|呆|住|，|。|\s|\d|$)/,
+  /规划\s*([一-龥]{2,8}?)(?=\s|\d|玩|游|旅|度|，|。|的|$)/,
+  /(?:目的地|地点)\s*[:：]?\s*([一-龥]{2,8})/,
+]
+const ORIGIN_REGEXES = [/(?:从|由)\s*([一-龥]{2,8}?)(?=出发|出|，|。|\s|$)/]
+const TRAVELERS_REGEXES = [/(\d+)\s*(?:个人|人|位)/]
+
+function regexFallback(text: string): Partial<TripBrief> {
+  const out: Partial<TripBrief> = {}
+  for (const re of DAYS_REGEXES) {
+    const m = text.match(re)
+    if (m) { out.days = parseInt(m[1], 10); break }
+  }
+  for (const re of DESTINATION_REGEXES) {
+    const m = text.match(re)
+    if (m) { out.destination = m[1]; break }
+  }
+  for (const re of ORIGIN_REGEXES) {
+    const m = text.match(re)
+    if (m) { out.originCity = m[1]; break }
+  }
+  for (const re of TRAVELERS_REGEXES) {
+    const m = text.match(re)
+    if (m) { out.travelers = parseInt(m[1], 10); break }
+  }
+  return out
+}
 
 const SYSTEM_PROMPT = `你是旅行需求抽取器。读取用户对话历史和现有 TripBrief（可能为 null），抽取/合并出最新的 TripBrief，并判定本次消息的意图。
 
@@ -51,26 +82,37 @@ export async function extractBrief(
     },
   ]
 
-  const resp = await llm.chat.completions.create({
-    model: FAST_MODEL,
-    messages: llmMessages,
-    temperature: 0,
-    response_format: { type: 'json_object' },
-  })
-
-  const content = resp.choices[0]?.message?.content ?? '{}'
-  const parsed = ExtractorOutputSchema.parse(JSON.parse(content))
-
-  // Merge partial with existing, then strict-validate
-  const merged = {
-    ...(existingBrief ?? {}),
-    ...parsed.brief,
-    travelers: parsed.brief.travelers ?? existingBrief?.travelers ?? 1,
-    preferences: parsed.brief.preferences ?? existingBrief?.preferences ?? [],
-    destination: parsed.brief.destination ?? existingBrief?.destination ?? '',
-    days: parsed.brief.days ?? existingBrief?.days ?? 0,
+  let parsed: ExtractorOutput = { brief: {}, intent: 'new', changedFields: [] }
+  try {
+    const resp = await llm.chat.completions.create({
+      model: FAST_MODEL,
+      messages: llmMessages,
+      temperature: 0,
+      response_format: { type: 'json_object' },
+    })
+    const content = resp.choices[0]?.message?.content ?? '{}'
+    try {
+      parsed = ExtractorOutputSchema.parse(JSON.parse(content))
+    } catch (err) {
+      console.warn(`[Extractor] LLM output parse failed, using regex fallback. raw="${content.slice(0, 200)}" err=${err instanceof Error ? err.message : err}`)
+    }
+  } catch (err) {
+    console.warn(`[Extractor] LLM call failed, using regex fallback: ${err instanceof Error ? err.message : err}`)
   }
-  const brief = TripBriefSchema.parse(merged)
 
+  // Always regex-augment from the latest user message — LLM may miss obvious fields
+  const fallback = regexFallback(userInput)
+  const briefCandidate = {
+    ...(existingBrief ?? {}),
+    ...fallback,           // regex first (might be wrong if LLM was right)
+    ...parsed.brief,       // LLM overrides regex if it gave a value
+    travelers: parsed.brief.travelers ?? fallback.travelers ?? existingBrief?.travelers ?? 1,
+    preferences: parsed.brief.preferences ?? existingBrief?.preferences ?? [],
+    destination: parsed.brief.destination ?? fallback.destination ?? existingBrief?.destination ?? '',
+    days: parsed.brief.days ?? fallback.days ?? existingBrief?.days ?? 0,
+  }
+  const brief = TripBriefSchema.parse(briefCandidate)
+
+  console.log(`[Extractor] brief=${JSON.stringify(brief)} intent=${parsed.intent} changed=${JSON.stringify(parsed.changedFields)}`)
   return { brief, intent: parsed.intent, changedFields: parsed.changedFields }
 }

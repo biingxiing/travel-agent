@@ -62,9 +62,9 @@ export async function criticReview(plan: Plan, brief: TripBrief): Promise<Critic
 
   const raw = resp.choices[0]?.message?.content ?? '{}'
   try {
-    return CriticReportSchema.parse(JSON.parse(raw))
+    return CriticReportSchema.parse(JSON.parse(raw || '{}'))
   } catch (err) {
-    console.warn('[Critic] Parse failed:', err instanceof Error ? err.message : err)
+    console.warn(`[Critic] Parse failed (raw="${raw.slice(0, 200).replace(/\n/g, '\\n')}"):`, err instanceof Error ? err.message : err)
     return FALLBACK
   }
 }

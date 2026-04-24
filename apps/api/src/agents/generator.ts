@@ -56,6 +56,54 @@ function extractJsonCodeBlock(content: string): string | null {
   return m?.[1] ?? null
 }
 
+function normalizePace(raw: unknown): 'relaxed' | 'balanced' | 'packed' | undefined {
+  if (raw === 'relaxed' || raw === 'balanced' || raw === 'packed') return raw
+  if (typeof raw !== 'string') return undefined
+  if (/紧|密|高强|快|加速|大量/.test(raw)) return 'packed'
+  if (/松|休闲|慢|宽|轻松|舒缓/.test(raw)) return 'relaxed'
+  return 'balanced'
+}
+
+// Normalize common LLM output drifts before zod parse.
+function normalizePlanJson(raw: unknown): unknown {
+  if (!raw || typeof raw !== 'object') return raw
+  const obj = raw as Record<string, unknown>
+
+  const normalizedPace = normalizePace(obj.pace)
+  if (normalizedPace) obj.pace = normalizedPace
+  else delete obj.pace  // let schema default kick in
+
+  if (Array.isArray(obj.dailyPlans)) {
+    obj.dailyPlans = (obj.dailyPlans as Array<Record<string, unknown>>).map((d) => ({
+      ...d,
+      items: Array.isArray(d.items) ? d.items : [],
+    }))
+  }
+
+  if (obj.estimatedBudget && typeof obj.estimatedBudget === 'object') {
+    const b = obj.estimatedBudget as Record<string, unknown>
+    if (typeof b.amount !== 'number') b.amount = 0
+    if (typeof b.currency !== 'string') b.currency = 'CNY'
+    // breakdown: LLM may emit object {transport: 1000, ...} instead of array
+    if (b.breakdown && !Array.isArray(b.breakdown) && typeof b.breakdown === 'object') {
+      b.breakdown = Object.entries(b.breakdown as Record<string, unknown>)
+        .filter(([k]) => ['transport', 'lodging', 'food', 'tickets', 'other'].includes(k))
+        .map(([category, amount]) => ({
+          category,
+          amount: typeof amount === 'number' ? amount : 0,
+        }))
+    }
+  }
+
+  if (!Array.isArray(obj.preferences)) obj.preferences = []
+  if (!Array.isArray(obj.tips)) obj.tips = []
+  if (typeof obj.travelers !== 'number') obj.travelers = 1
+  if (typeof obj.disclaimer !== 'string') {
+    obj.disclaimer = '本行程由 AI 生成，仅供参考。出行前请通过官方渠道核对最新信息。'
+  }
+  return obj
+}
+
 async function runWithToolLoop(
   messages: OpenAI.Chat.ChatCompletionMessageParam[],
   tools: OpenAI.Chat.ChatCompletionTool[],
@@ -143,7 +191,7 @@ export async function* runInitial(
     return null
   }
   try {
-    const plan = PlanSchema.parse(JSON.parse(json))
+    const plan = PlanSchema.parse(normalizePlanJson(JSON.parse(json)))
     yield { type: 'plan', plan }
     yield { type: 'done', messageId }
     return plan
@@ -170,9 +218,14 @@ export async function runRefine(
   ]
   const tools = buildSkillTools()
   const prepared = await runWithToolLoop(llmMessages, tools)
-  const json = extractJsonCodeBlock(prepared.content) ?? prepared.content
+  const rawJson = extractJsonCodeBlock(prepared.content) ?? prepared.content
+  const json = rawJson?.trim()
+  if (!json || (json[0] !== '{' && json[0] !== '[')) {
+    console.warn(`[Generator.refine] No JSON in LLM output (content length=${prepared.content?.length ?? 0}), returning original`)
+    return current
+  }
   try {
-    return PlanSchema.parse(JSON.parse(json))
+    return PlanSchema.parse(normalizePlanJson(JSON.parse(json)))
   } catch (err) {
     console.warn('[Generator.refine] Parse failed, returning original:', err)
     return current
