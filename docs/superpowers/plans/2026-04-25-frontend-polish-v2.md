@@ -963,7 +963,7 @@ git commit -m "feat(web/ui): DropdownMenu wrapper (Reka UI) with item/separator 
 **Files:**
 - Create: `apps/web/components/ui/Dialog.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1056,7 +1056,7 @@ export { DialogClose } from 'reka-ui'
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
