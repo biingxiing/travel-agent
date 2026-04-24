@@ -1,5 +1,6 @@
 import type { SessionState, Plan } from "@travel-agent/shared"
 import { useApiBase } from "./useApiBase"
+import { destinationColor } from "~/utils/destination-color"
 
 export interface TripHistoryEntry {
   sessionId: string
@@ -13,17 +14,6 @@ export interface TripHistoryEntry {
 
 const STORAGE_KEY = "travel-agent.trips.index"
 const MAX_ENTRIES = 24
-
-const COVER_PALETTES: string[] = [
-  "linear-gradient(135deg, #7B5BFF 0%, #4F7CFF 100%)",
-  "linear-gradient(135deg, #06B6D4 0%, #3B82F6 100%)",
-  "linear-gradient(135deg, #F59E0B 0%, #EF4444 100%)",
-  "linear-gradient(135deg, #10B981 0%, #3B82F6 100%)",
-  "linear-gradient(135deg, #8B5CF6 0%, #EC4899 100%)",
-  "linear-gradient(135deg, #0EA5E9 0%, #6366F1 100%)",
-  "linear-gradient(135deg, #F97316 0%, #DB2777 100%)",
-  "linear-gradient(135deg, #14B8A6 0%, #4F46E5 100%)",
-]
 
 function canUseLocalStorage(): boolean {
   if (!import.meta.client) return false
@@ -59,20 +49,7 @@ function writeIndex(entries: TripHistoryEntry[]): void {
   window.localStorage.setItem(STORAGE_KEY, JSON.stringify(entries.slice(0, MAX_ENTRIES)))
 }
 
-function hashString(value: string): number {
-  let hash = 0
-  for (let i = 0; i < value.length; i += 1) {
-    hash = (hash << 5) - hash + value.charCodeAt(i)
-    hash |= 0
-  }
-  return Math.abs(hash)
-}
-
-export function coverForDestination(destination: string): string {
-  if (!destination) return COVER_PALETTES[0]
-  const index = hashString(destination) % COVER_PALETTES.length
-  return COVER_PALETTES[index]
-}
+export const coverForDestination = destinationColor
 
 function entryFromSession(session: SessionState): TripHistoryEntry | null {
   if (!session?.id) return null

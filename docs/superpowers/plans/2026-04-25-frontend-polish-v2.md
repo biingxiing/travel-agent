@@ -574,7 +574,7 @@ git commit -m "feat(web): add poi-visual util mapping PlanItem.type to gradient 
 - Create: `apps/web/utils/destination-color.test.ts`
 - Modify: `apps/web/composables/useTripHistory.ts` (delegate `coverForDestination` to the new util)
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 `apps/web/utils/destination-color.test.ts`:
 
@@ -629,9 +629,9 @@ describe('destinationColor', () => {
 })
 ```
 
-- [ ] **Step 2: Run — FAIL**
+- [x] **Step 2: Run — FAIL**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 interface DestinationBand {
@@ -659,9 +659,9 @@ export function destinationColor(destination: string | undefined | null): string
 }
 ```
 
-- [ ] **Step 4: Run — PASS** (8 tests)
+- [x] **Step 4: Run — PASS** (8 tests)
 
-- [ ] **Step 5: Delegate `coverForDestination` in `useTripHistory.ts`**
+- [x] **Step 5: Delegate `coverForDestination` in `useTripHistory.ts`**
 
 Open `apps/web/composables/useTripHistory.ts`. Find:
 - `const COVER_PALETTES: string[] = [ ... ]` (~lines 16-25)
@@ -678,7 +678,7 @@ export const coverForDestination = destinationColor
 
 Also ensure the import is hoisted to the top of the file alongside the other imports.
 
-- [ ] **Step 6: Verify build + test**
+- [x] **Step 6: Verify build + test**
 
 ```bash
 pnpm build:web
@@ -686,7 +686,7 @@ pnpm --filter @travel-agent/web test
 ```
 Expected: both pass. `TripHistoryGrid` still renders (it just uses the new semantic mapping).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/utils/destination-color.ts apps/web/utils/destination-color.test.ts apps/web/composables/useTripHistory.ts
