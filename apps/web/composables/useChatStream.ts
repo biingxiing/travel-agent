@@ -1,169 +1,94 @@
-import type { StreamEvent } from "~/types/itinerary"
-import { useApiBase } from "~/composables/useApiBase"
-import { useAuthStore } from "~/stores/auth"
+import { useApiBase } from './useApiBase'
+import type { ChatStreamEvent } from '@travel-agent/shared'
 
-interface ParsedChunk {
-  event?: string
-  data?: string
+export interface ChatStreamHandlers {
+  onEvent: (event: ChatStreamEvent) => void
+  onClose?: () => void
+  onError?: (err: unknown) => void
 }
 
-function parseChunk(chunk: string): ParsedChunk {
-  const parsed: ParsedChunk = {}
-
-  for (const line of chunk.split("\n")) {
-    if (line.startsWith("event:")) {
-      parsed.event = line.slice(6).trim()
-    }
-
-    if (line.startsWith("data:")) {
-      parsed.data = parsed.data ? `${parsed.data}\n${line.slice(5).trim()}` : line.slice(5).trim()
-    }
-  }
-
-  return parsed
+export interface ChatStreamSession {
+  ensureSessionId: () => Promise<string>
+  sendMessage: (content: string, handlers: ChatStreamHandlers) => Promise<void>
+  continueOptimization: (handlers: ChatStreamHandlers) => Promise<void>
+  setSessionId: (id: string | null) => void
+  getSessionId: () => string | null
 }
 
-function normalizeEvent(chunk: string): StreamEvent | null {
-  const parsed = parseChunk(chunk)
-
-  if (!parsed.data) {
-    return null
-  }
-
-  try {
-    const payload = JSON.parse(parsed.data) as Record<string, unknown>
-    const type = typeof payload.type === "string" ? payload.type : parsed.event
-
-    if (!type) {
-      return null
-    }
-
-    return {
-      ...payload,
-      type
-    } as StreamEvent
-  } catch {
-    return {
-      type: "error",
-      message: "无法解析服务端返回的流式事件。"
-    }
-  }
-}
-
-const AUTH_REQUIRED_ERROR = "__AUTH_REQUIRED__"
-
-export function isAuthRequiredError(error: unknown) {
-  return error instanceof Error && error.message === AUTH_REQUIRED_ERROR
-}
-
-export function useChatStream() {
+export function useChatStream(initialSessionId: string | null = null): ChatStreamSession {
   const { resolveApiBase } = useApiBase()
-  const authStore = useAuthStore()
+  let sessionId: string | null = initialSessionId
 
-  function createAuthRequiredError() {
-    return new Error(AUTH_REQUIRED_ERROR)
-  }
-
-  async function createSession() {
-    try {
-      const apiBase = resolveApiBase()
-      const url = `${apiBase}/api/sessions`
-      const response = await fetch(url, {
-        method: "POST",
-        credentials: "include"
-      })
-
-      if (response.status === 401) {
-        authStore.handleUnauthorized()
-        throw createAuthRequiredError()
-      }
-
-      if (!response.ok) {
-        console.error("createSession failed", {
-          status: response.status,
-          statusText: response.statusText,
-          url
-        })
-        throw new Error("服务没连上，请确认前端 :3000 和后端 :3001 都已启动。")
-      }
-
-      const payload = (await response.json()) as { sessionId: string }
-      return payload.sessionId
-    } catch (error) {
-      if (isAuthRequiredError(error)) {
-        throw error
-      }
-
-      console.error("createSession request error", error)
-      throw new Error("服务没连上，请确认前端 :3000 和后端 :3001 都已启动。")
-    }
-  }
-
-  async function streamChat(sessionId: string, message: string, onEvent: (event: StreamEvent) => void) {
+  async function createSession(): Promise<string> {
     const apiBase = resolveApiBase()
-    const url = `${apiBase}/api/chat`
-    const response = await fetch(url, {
-      method: "POST",
-      credentials: "include",
-      headers: {
-        "Content-Type": "application/json",
-        Accept: "text/event-stream"
-      },
-      body: JSON.stringify({
-        sessionId,
-        message
-      })
+    const r = await fetch(`${apiBase}/api/sessions`, {
+      method: 'POST', credentials: 'include',
     })
+    if (!r.ok) throw new Error(`Create session failed: ${r.status}`)
+    const body = await r.json() as { session: { id: string } }
+    sessionId = body.session.id
+    return sessionId
+  }
 
-    if (response.status === 401) {
-      authStore.handleUnauthorized()
-      throw createAuthRequiredError()
+  async function ensureSessionId(): Promise<string> {
+    return sessionId ?? await createSession()
+  }
+
+  async function streamRequest(url: string, init: RequestInit, handlers: ChatStreamHandlers) {
+    let resp: Response
+    try {
+      resp = await fetch(url, { ...init, credentials: 'include' })
+    } catch (err) { handlers.onError?.(err); return }
+    if (!resp.ok || !resp.body) {
+      handlers.onError?.(new Error(`HTTP ${resp.status}`))
+      return
     }
-
-    if (!response.ok || !response.body) {
-      console.error("streamChat failed", {
-        status: response.status,
-        statusText: response.statusText,
-        url
-      })
-      throw new Error("规划有点慢，要不要再试一次？")
-    }
-
-    const reader = response.body.getReader()
+    const reader = resp.body.getReader()
     const decoder = new TextDecoder()
-    let buffer = ""
-
-    while (true) {
-      const { done, value } = await reader.read()
-
-      if (done) {
-        break
-      }
-
-      buffer += decoder.decode(value, { stream: true })
-      const chunks = buffer.split("\n\n")
-      buffer = chunks.pop() ?? ""
-
-      for (const chunk of chunks) {
-        const event = normalizeEvent(chunk)
-
-        if (event) {
-          onEvent(event)
+    let buffer = ''
+    try {
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+        let idx
+        while ((idx = buffer.indexOf('\n\n')) !== -1) {
+          const block = buffer.slice(0, idx)
+          buffer = buffer.slice(idx + 2)
+          const dataLine = block.split('\n').find((l) => l.startsWith('data:'))
+          if (!dataLine) continue
+          const json = dataLine.slice(5).trim()
+          try {
+            handlers.onEvent(JSON.parse(json) as ChatStreamEvent)
+          } catch (err) { console.warn('[chatStream] parse failed', err) }
         }
       }
-    }
+      handlers.onClose?.()
+    } catch (err) { handlers.onError?.(err) }
+  }
 
-    if (buffer.trim()) {
-      const event = normalizeEvent(buffer.trim())
+  async function sendMessage(content: string, handlers: ChatStreamHandlers) {
+    const id = await ensureSessionId()
+    const apiBase = resolveApiBase()
+    await streamRequest(`${apiBase}/api/sessions/${id}/messages`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content }),
+    }, handlers)
+  }
 
-      if (event) {
-        onEvent(event)
-      }
-    }
+  async function continueOptimization(handlers: ChatStreamHandlers) {
+    const id = await ensureSessionId()
+    const apiBase = resolveApiBase()
+    await streamRequest(`${apiBase}/api/sessions/${id}/continue`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    }, handlers)
   }
 
   return {
-    createSession,
-    streamChat
+    ensureSessionId, sendMessage, continueOptimization,
+    setSessionId: (id) => { sessionId = id },
+    getSessionId: () => sessionId,
   }
 }
