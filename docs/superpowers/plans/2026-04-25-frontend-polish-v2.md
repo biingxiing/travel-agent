@@ -2408,7 +2408,7 @@ git commit -m "feat(web/landing): redesign HeroPlannerCard with aurora Hero + gl
 **Files:**
 - Modify: `apps/web/components/TripHistoryGrid.vue`
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports**
 
 Top of `<script setup>`:
 ```ts
@@ -2418,7 +2418,7 @@ import { relativeTime } from '~/utils/relative-time'
 import { destinationColor } from '~/utils/destination-color'
 ```
 
-- [ ] **Step 2: Replace the section header**
+- [x] **Step 2: Replace the section header**
 
 Find `<header class="trip-history-head">...</header>` (around line 40). Replace with:
 
@@ -2431,7 +2431,7 @@ Find `<header class="trip-history-head">...</header>` (around line 40). Replace 
 </header>
 ```
 
-- [ ] **Step 3: Replace the empty-state div**
+- [x] **Step 3: Replace the empty-state div**
 
 Find `<div v-if="entries.length === 0" class="trip-history-empty">...</div>`. Replace with:
 
@@ -2444,7 +2444,7 @@ Find `<div v-if="entries.length === 0" class="trip-history-empty">...</div>`. Re
 />
 ```
 
-- [ ] **Step 4: Replace the cards grid**
+- [x] **Step 4: Replace the cards grid**
 
 Find `<div v-else class="trip-history-grid">...</div>`. Replace with:
 
@@ -2492,7 +2492,7 @@ Find `<div v-else class="trip-history-grid">...</div>`. Replace with:
 </div>
 ```
 
-- [ ] **Step 5: Replace scoped styles**
+- [x] **Step 5: Replace scoped styles**
 
 Replace the entire `<style scoped>...</style>` with:
 
@@ -2613,7 +2613,7 @@ Replace the entire `<style scoped>...</style>` with:
 </style>
 ```
 
-- [ ] **Step 6: Verify build + visual**
+- [x] **Step 6: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -2621,7 +2621,7 @@ pnpm build:web
 
 Dev + Playwright: `/` with at least 1 history entry should show a card with destination color band + Clock / Footprints meta row.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/components/TripHistoryGrid.vue

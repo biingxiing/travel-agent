@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import { useTripHistory, coverForDestination } from "~/composables/useTripHistory"
+import { Clock, Footprints, Compass } from 'lucide-vue-next'
+import EmptyState from '~/components/states/EmptyState.vue'
+import { relativeTime } from '~/utils/relative-time'
+import { destinationColor } from '~/utils/destination-color'
+import { useTripHistory } from "~/composables/useTripHistory"
 import type { TripHistoryEntry } from "~/composables/useTripHistory"
 
 const emit = defineEmits<{
@@ -13,18 +17,6 @@ onMounted(() => {
   refresh()
 })
 
-function formatDate(value: string): string {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) {
-    return ""
-  }
-  return date.toLocaleDateString("zh-CN", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  })
-}
-
 function onSelect(entry: TripHistoryEntry) {
   emit("select", entry)
 }
@@ -37,61 +29,58 @@ function onRemove(entry: TripHistoryEntry) {
 
 <template>
   <section class="trip-history">
-    <header class="trip-history-head">
-      <h2 class="trip-history-title">我的线路</h2>
-      <span v-if="entries.length" class="trip-history-count">{{ entries.length }} 条方案</span>
+    <header class="history-head">
+      <h2 class="history-head-title">继续之前的规划</h2>
+      <span v-if="entries.length" class="history-head-meta">
+        RECENT · {{ entries.length }}
+      </span>
     </header>
 
-    <div v-if="entries.length === 0" class="trip-history-empty">
-      <div class="trip-history-empty-icon" aria-hidden="true">
-        <svg viewBox="0 0 48 48" width="32" height="32" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M8 14h32v24a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V14z" />
-          <path d="M16 14V8a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4v6" />
-          <path d="M22 24l4 4 8-8" />
-        </svg>
-      </div>
-      <p class="trip-history-empty-copy">
-        还没有保存的线路。在上方描述你的出行需求，生成第一个方案吧。
-      </p>
-    </div>
+    <EmptyState
+      v-if="entries.length === 0"
+      :icon="Compass"
+      title="还没有规划过的行程"
+      hint="从上方的 Hero 里描述你的第一次出行需求吧。"
+    />
 
-    <div v-else class="trip-history-grid">
+    <div v-else class="history-grid">
       <article
         v-for="entry in entries"
         :key="entry.sessionId"
-        class="trip-card"
-        tabindex="0"
+        class="history-card"
         role="button"
+        tabindex="0"
         @click="onSelect(entry)"
         @keydown.enter.prevent="onSelect(entry)"
         @keydown.space.prevent="onSelect(entry)"
       >
         <div
-          class="trip-card-cover"
-          :style="{ background: coverForDestination(entry.destination || entry.title) }"
-        >
-          <span class="trip-card-cover-label">{{ entry.destination || entry.title }}</span>
-          <button
-            type="button"
-            class="trip-card-remove"
-            aria-label="删除该线路"
-            @click.stop="onRemove(entry)"
-          >
-            ×
-          </button>
-        </div>
-        <div class="trip-card-body">
-          <h3 class="trip-card-title">{{ entry.title }}</h3>
-          <p class="trip-card-meta">
-            <span>{{ entry.days }}天</span>
-            <span class="trip-card-sep">·</span>
-            <span>{{ entry.poiCount }} 个地点</span>
-            <span class="trip-card-sep">·</span>
-            <span>{{ entry.cityCount }} 个城市</span>
-          </p>
-          <p class="trip-card-date">
-            {{ formatDate(entry.updatedAt) }} 自动保存
-          </p>
+          class="history-band"
+          :style="{ background: destinationColor(entry.destination || entry.title) }"
+        />
+        <div class="history-body">
+          <div class="history-title-row">
+            <strong class="history-dest">
+              {{ entry.destination || entry.title }}
+              <span v-if="entry.days" class="history-dest-meta">· {{ entry.days }} 天</span>
+            </strong>
+            <button
+              type="button"
+              class="history-remove"
+              aria-label="删除该线路"
+              @click.stop="onRemove(entry)"
+            >×</button>
+          </div>
+          <div class="history-meta">
+            <span class="history-meta-item">
+              <Clock :size="12" :stroke-width="1.5" />
+              {{ relativeTime(entry.updatedAt) }}
+            </span>
+            <span v-if="entry.poiCount" class="history-meta-item">
+              <Footprints :size="12" :stroke-width="1.5" />
+              {{ entry.poiCount }} 个安排
+            </span>
+          </div>
         </div>
       </article>
     </div>
@@ -99,184 +88,116 @@ function onRemove(entry: TripHistoryEntry) {
 </template>
 
 <style scoped>
-.trip-history {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
+.trip-history { display: flex; flex-direction: column; gap: 14px; }
 
-.trip-history-head {
+.history-head {
   display: flex;
-  align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  align-items: baseline;
+  padding: 4px 2px;
 }
-
-.trip-history-title {
+.history-head-title {
   margin: 0;
   font-family: var(--font-display);
-  font-weight: 700;
-  font-size: 22px;
-  letter-spacing: -0.01em;
+  font-size: var(--type-subhead-size);
+  font-weight: 600;
+  letter-spacing: var(--type-heading-tracking);
   color: var(--text);
 }
-
-.trip-history-count {
+.history-head-meta {
   font-family: var(--font-mono);
-  font-size: 12px;
+  font-size: var(--type-mono-xs-size);
+  letter-spacing: var(--type-mono-xs-tracking);
   color: var(--text-subtle);
-  letter-spacing: 0.04em;
 }
 
-.trip-history-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  padding: 36px 24px;
-  background: var(--bg-elevated);
-  border: 1px dashed var(--border-strong);
-  border-radius: var(--r-lg);
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.trip-history-empty-icon {
-  color: var(--brand-blue);
-}
-
-.trip-history-empty-copy {
-  margin: 0;
-  font-size: 14px;
-  line-height: 1.55;
-  max-width: 360px;
-}
-
-.trip-history-grid {
+.history-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 14px;
 }
 
-.trip-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
+.history-card {
+  display: flex; flex-direction: column;
   background: var(--bg-elevated);
   border: 1px solid var(--border);
   border-radius: var(--r-lg);
   overflow: hidden;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--dur-fast) var(--ease-out),
+  transition:
+    transform var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out),
     border-color var(--dur-fast) var(--ease-out);
 }
-
-.trip-card:hover,
-.trip-card:focus-visible {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lift);
+.history-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
   border-color: var(--border-strong);
 }
-
-.trip-card:focus-visible {
+.history-card:focus-visible {
   outline: 2px solid var(--brand-blue);
-  outline-offset: 2px;
+  outline-offset: -1px;
 }
 
-.trip-card-cover {
+.history-band {
+  height: 64px;
   position: relative;
-  aspect-ratio: 16 / 10;
-  display: flex;
-  align-items: flex-end;
-  padding: 14px 16px;
-  color: var(--text-inverse);
+}
+.history-band::after {
+  content: ""; position: absolute; inset: 0;
+  background-image:
+    radial-gradient(circle at 20% 80%, rgba(255,255,255,0.25), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(255,255,255,0.2), transparent 40%);
 }
 
-.trip-card-cover::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(17, 24, 39, 0) 40%, rgba(17, 24, 39, 0.35) 100%);
-  pointer-events: none;
-}
-
-.trip-card-cover-label {
-  position: relative;
-  font-family: var(--font-display);
-  font-weight: 600;
-  font-size: 18px;
-  letter-spacing: 0.01em;
-  z-index: 1;
-}
-
-.trip-card-remove {
-  position: absolute;
-  top: 10px;
-  right: 10px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 0;
-  border-radius: 999px;
-  background: rgba(17, 24, 39, 0.35);
-  color: var(--text-inverse);
-  font-size: 16px;
-  line-height: 1;
-  cursor: pointer;
-  z-index: 2;
-  opacity: 0;
-  transition: opacity var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
-}
-
-.trip-card:hover .trip-card-remove,
-.trip-card:focus-within .trip-card-remove { opacity: 1; }
-
-.trip-card-remove:hover { background: rgba(17, 24, 39, 0.55); }
-
-.trip-card-body {
+.history-body {
   padding: 14px 16px 16px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+
+.history-title-row {
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  justify-content: space-between;
+  align-items: start;
+  gap: 8px;
 }
 
-.trip-card-title {
-  margin: 0;
+.history-dest {
   font-family: var(--font-display);
+  font-size: var(--type-body-lg-size);
   font-weight: 600;
-  font-size: 15px;
-  line-height: 1.4;
+  letter-spacing: -0.01em;
   color: var(--text);
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
+}
+.history-dest-meta {
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-left: 4px;
 }
 
-.trip-card-meta {
-  margin: 0;
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.history-remove {
+  appearance: none;
+  border: 0; background: transparent;
   color: var(--text-subtle);
-  font-size: 12.5px;
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: var(--r-xs);
+  transition: color var(--dur-fast) var(--ease-out), background-color var(--dur-fast) var(--ease-out);
 }
+.history-remove:hover { color: var(--accent-danger); background: var(--accent-danger-soft); }
 
-.trip-card-sep { color: var(--text-subtle); }
-
-.trip-card-date {
-  margin: 0;
-  color: var(--text-subtle);
-  font-size: 12px;
+.history-meta {
+  display: flex; gap: 12px;
+  font-size: var(--type-caption-size);
+  color: var(--text-muted);
 }
+.history-meta-item {
+  display: inline-flex; align-items: center; gap: 4px;
+}
+.history-meta-item :deep(svg) { color: var(--text-subtle); }
 
-@media (prefers-reduced-motion: reduce) {
-  .trip-card:hover,
-  .trip-card:focus-visible { transform: none; }
+@media (max-width: 640px) {
+  .history-grid { grid-template-columns: 1fr; }
 }
 </style>
