@@ -1137,7 +1137,7 @@ git commit -m "feat(web/ui): ScrollArea wrapper (Reka UI) with styled scrollbar"
 **Files:**
 - Create: `apps/web/components/states/EmptyState.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1189,7 +1189,7 @@ defineProps<{
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
