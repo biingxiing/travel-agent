@@ -6,6 +6,9 @@ vi.mock('./generator.js', () => ({
   runInitial: vi.fn(),
   runRefine: vi.fn(),
 }))
+vi.mock('./prefetch.js', () => ({
+  prefetchFlyaiContext: vi.fn(async () => []),
+}))
 vi.mock('../config/eval.js', () => ({
   getEvalConfig: () => ({
     ruleWeight: 0.7, llmWeight: 0.3, threshold: 90, maxIter: 3,

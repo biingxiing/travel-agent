@@ -2,6 +2,7 @@ import { randomUUID } from 'crypto'
 import { extractBrief } from './extractor.js'
 import { evaluate } from './evaluator.js'
 import { runInitial, runRefine } from './generator.js'
+import { prefetchFlyaiContext } from './prefetch.js'
 import { getEvalConfig } from '../config/eval.js'
 import { isBriefMinimallyComplete, type SessionState, type ChatStreamEvent, type ItineraryScoreSummary, type Plan } from '@travel-agent/shared'
 
@@ -48,8 +49,17 @@ export async function* runReactLoop(
   if (!session.currentPlan || ext.intent === 'new') {
     session.status = 'planning'
     session.iterationCount = 0
+    // Prefetch real flyai data so the LLM can fill items deterministically.
+    yield { type: 'agent_step', agent: 'generator', status: 'thinking' }
+    let prefetched: string[] = []
+    try {
+      prefetched = await prefetchFlyaiContext(ext.brief, session.id)
+    } catch (err) {
+      console.warn('[ReactLoop] prefetchFlyaiContext failed (continuing without):', err)
+    }
+    if (isCancelled(session, runId)) return
     let initial: Plan | null = null
-    const gen = runInitial(ext.brief, session.messages)
+    const gen = runInitial(ext.brief, session.messages, prefetched)
     while (true) {
       const r = await gen.next()
       if (r.value && typeof r.value === 'object' && 'type' in r.value) {
