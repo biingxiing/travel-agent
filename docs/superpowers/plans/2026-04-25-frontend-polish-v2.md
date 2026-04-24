@@ -1508,7 +1508,7 @@ git commit -m "feat(web/states): StreamingBubble with Sparkles + ReAct loopStatu
 
 Replaces the inline `.react-progress` block currently in `pages/index.vue`.
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1613,7 +1613,7 @@ const reached = computed(() =>
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
