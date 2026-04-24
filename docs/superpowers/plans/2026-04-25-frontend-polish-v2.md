@@ -2118,18 +2118,18 @@ git commit -m "feat(web/auth): value props with Lucide icons + Eye/EyeOff passwo
 
 **Note:** This is the largest single-component change. Keep existing emits. The whole origin/destination/date/prefs UI is replaced by a single Hero + composer — those detailed controls are not used by the current landing flow.
 
-- [ ] **Step 1: Read current emit shape**
+- [x] **Step 1: Read current emit shape**
 
 Check the top of the file. Confirm: `defineEmits<{ submit: [value: string] }>()` and `loading?: boolean` prop. Keep these.
 
-- [ ] **Step 2: Add Lucide imports**
+- [x] **Step 2: Add Lucide imports**
 
 Top of `<script setup>`:
 ```ts
 import { Sparkles, MapPin, Calendar, DollarSign, ArrowRight } from 'lucide-vue-next'
 ```
 
-- [ ] **Step 3: Replace `<script setup>` body (except emit/props declarations)**
+- [x] **Step 3: Replace `<script setup>` body (except emit/props declarations)**
 
 Between `defineProps` / `defineEmits` and the end of `<script setup>`, replace everything with:
 
@@ -2153,7 +2153,7 @@ function applyPreset(value: string) {
 }
 ```
 
-- [ ] **Step 4: Replace the `<template>` block**
+- [x] **Step 4: Replace the `<template>` block**
 
 ```html
 <template>
@@ -2218,7 +2218,7 @@ function applyPreset(value: string) {
 </template>
 ```
 
-- [ ] **Step 5: Replace the entire `<style scoped>` block**
+- [x] **Step 5: Replace the entire `<style scoped>` block**
 
 ```css
 <style scoped>
@@ -2386,7 +2386,7 @@ function applyPreset(value: string) {
 </style>
 ```
 
-- [ ] **Step 6: Verify build + visual**
+- [x] **Step 6: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -2394,7 +2394,7 @@ pnpm build:web
 
 Dev + Playwright: `/` shows aurora hero, gradient-text title, glass composer, 4 preset pills.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/components/HeroPlannerCard.vue
