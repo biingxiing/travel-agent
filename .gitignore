@@ -3,5 +3,9 @@ node_modules
 dist
 .nuxt
 .output
+.tmp-pw
+playwright-report
+test-results
 plugins/*
 !plugins/.gitkeep
+.superpowers/
