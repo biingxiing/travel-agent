@@ -1,4 +1,3 @@
-import type { PlanOption } from "@travel-agent/domain"
 import type { SessionState, Plan } from "@travel-agent/shared"
 import { useApiBase } from "./useApiBase"
 
@@ -176,36 +175,5 @@ export function useTripHistory() {
     remove,
     clear,
     coverForDestination,
-  }
-}
-
-export function buildHistoryEntryFromPlan(
-  sessionId: string,
-  option: PlanOption | null,
-  destination: string,
-  updatedAt: string,
-): TripHistoryEntry | null {
-  if (!sessionId) return null
-  const title =
-    option?.summary.headline ||
-    (destination ? `${destination} 旅行方案` : "")
-  if (!title) return null
-
-  const poiCount = option?.pois.length || 0
-  const days = option?.days.length || 0
-  const cities = new Set<string>()
-  option?.days.forEach((day) => {
-    if (day.city) cities.add(day.city)
-  })
-  if (destination) cities.add(destination)
-
-  return {
-    sessionId,
-    title,
-    destination: destination || option?.summary.destination || "",
-    days,
-    poiCount,
-    cityCount: Math.max(cities.size, 1),
-    updatedAt: updatedAt || new Date().toISOString(),
   }
 }

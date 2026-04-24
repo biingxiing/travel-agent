@@ -2,6 +2,9 @@
   "name": "@travel-agent/web",
   "private": true,
   "type": "module",
+  "imports": {
+    "#internal/nuxt/paths": "./nuxt-internal-paths.mjs"
+  },
   "scripts": {
     "dev": "nuxt dev",
     "build": "nuxt build",
@@ -10,6 +13,7 @@
   "dependencies": {
     "@pinia/nuxt": "^0.10.1",
     "nuxt": "^3.17.3",
-    "pinia": "^3.0.2"
+    "pinia": "^3.0.2",
+    "ufo": "^1.6.3"
   }
 }
