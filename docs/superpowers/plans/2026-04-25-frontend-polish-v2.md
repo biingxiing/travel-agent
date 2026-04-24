@@ -1406,7 +1406,7 @@ git commit -m "feat(web/states): ErrorState component (AlertCircle + retry)"
 
 Accepts an optional `loopStatus: 'evaluating' | 'refining' | null` and optional `iteration/maxIterations`. When present, the status text switches to the ReAct-specific messaging.
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1489,7 +1489,7 @@ const effectiveStatus = computed(() => {
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
