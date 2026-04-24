@@ -5,6 +5,13 @@ import type { SkillManifest, SkillHandler } from './types.js'
 
 const execFileAsync = promisify(execFile)
 
+export function getSkillTimeoutMs(): number {
+  const raw = process.env.SKILL_EXEC_TIMEOUT_MS
+  if (!raw) return 60000
+  const n = parseInt(raw, 10)
+  return Number.isFinite(n) && n > 0 ? n : 60000
+}
+
 function parseFrontmatter(content: string): Record<string, string> {
   const match = content.match(/^---\n([\s\S]*?)\n---/)
   if (!match) return {}
@@ -19,13 +26,17 @@ function parseFrontmatter(content: string): Record<string, string> {
   return result
 }
 
+function camelToKebab(str: string): string {
+  return str.replace(/([A-Z])/g, '-$1').toLowerCase()
+}
+
 function buildCliArgs(skillName: string, args: Record<string, unknown>): [string, string[]] {
   const { command, ...rest } = args
   const subcommand = typeof command === 'string' ? command : 'ai-search'
   const flags: string[] = []
   for (const [key, value] of Object.entries(rest)) {
     if (value !== undefined && value !== null) {
-      flags.push(`--${key}`, String(value))
+      flags.push(`--${camelToKebab(key)}`, String(value))
     }
   }
   return [skillName, [subcommand, ...flags]]
@@ -58,12 +69,22 @@ export function loadSkillFromDir(
     return null
   }
 
-  const manifest: SkillManifest = { name, version, description }
+  let parameters: SkillManifest['parameters'] | undefined
+  const parametersPath = dirPath.replace(/^~/, process.env.HOME ?? '') + '/parameters.json'
+  if (existsSync(parametersPath)) {
+    try {
+      parameters = JSON.parse(readFileSync(parametersPath, 'utf-8')) as SkillManifest['parameters']
+    } catch (err) {
+      console.warn(`[DirSkillLoader] Failed to parse ${parametersPath}:`, err)
+    }
+  }
+
+  const manifest: SkillManifest = { name, version, description, ...(parameters ? { parameters } : {}) }
 
   const handler: SkillHandler = async (args) => {
     const [bin, cliArgs] = buildCliArgs(name, args)
     try {
-      const { stdout } = await execFileAsync(bin, cliArgs, { timeout: 15000 })
+      const { stdout } = await execFileAsync(bin, cliArgs, { timeout: getSkillTimeoutMs() })
       return stdout.trim()
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err)
