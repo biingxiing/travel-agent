@@ -1,6 +1,6 @@
 export function useApiBase() {
   const config = useRuntimeConfig()
-  const configuredApiBase = config.public.apiBase || ""
+  const configuredApiBase = (config.public.apiBase || "").trim()
 
   function resolveApiBase() {
     if (!import.meta.client) {

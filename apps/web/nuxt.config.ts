@@ -8,9 +8,6 @@ export default defineNuxtConfig({
       apiBase: process.env.NUXT_PUBLIC_API_BASE || ""
     }
   },
-  routeRules: {
-    "/api/**": { proxy: "http://localhost:3001/api/**" }
-  },
   app: {
     head: {
       title: "旅行规划助手",
@@ -22,6 +19,26 @@ export default defineNuxtConfig({
         {
           name: "description",
           content: "Conversational travel planning MVP built with Nuxt 3."
+        }
+      ],
+      link: [
+        {
+          rel: "preconnect",
+          href: "https://fonts.googleapis.com"
+        },
+        {
+          rel: "preconnect",
+          href: "https://fonts.gstatic.com",
+          crossorigin: ""
+        },
+        {
+          rel: "preload",
+          as: "style",
+          href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+        },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
         }
       ]
     }

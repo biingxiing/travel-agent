@@ -15,6 +15,7 @@ interface ErrorResponse {
 }
 
 const AUTH_STATUS_TIMEOUT_MS = 5000
+const AUTH_MUTATION_TIMEOUT_MS = 8000
 
 async function readJson<T>(response: Response): Promise<T | null> {
   const contentType = response.headers.get("content-type") || ""
@@ -28,6 +29,26 @@ async function readJson<T>(response: Response): Promise<T | null> {
 
 export function useAuthApi() {
   const { resolveApiBase } = useApiBase()
+
+  async function requestWithTimeout(input: RequestInfo | URL, init: RequestInit, timeoutMs: number) {
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), timeoutMs)
+
+    try {
+      return await fetch(input, {
+        ...init,
+        signal: controller.signal
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") {
+        throw new Error("认证服务响应超时，请确认 API 已启动后再试。")
+      }
+
+      throw new Error("无法连接认证服务，请确认 Web 和 API 服务都已启动。")
+    } finally {
+      clearTimeout(timer)
+    }
+  }
 
   async function fetchAuthStatus() {
     const apiBase = resolveApiBase()
@@ -47,7 +68,7 @@ export function useAuthApi() {
         throw new Error("登录状态检查超时。请确认 API 已启动，且 `apps/api/.env` 已配置 `AUTH_USERNAME`、`AUTH_PASSWORD`、`AUTH_COOKIE_SECRET`。")
       }
 
-      throw error
+      throw new Error("暂时无法确认登录状态，请确认 Web 和 API 服务都已启动。")
     } finally {
       clearTimeout(timer)
     }
@@ -61,14 +82,14 @@ export function useAuthApi() {
 
   async function login(username: string, password: string) {
     const apiBase = resolveApiBase()
-    const response = await fetch(`${apiBase}/api/auth/login`, {
+    const response = await requestWithTimeout(`${apiBase}/api/auth/login`, {
       method: "POST",
       credentials: "include",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({ username, password })
-    })
+    }, AUTH_MUTATION_TIMEOUT_MS)
 
     const payload = await readJson<ErrorResponse & Partial<LoginResponse>>(response)
 
@@ -85,10 +106,10 @@ export function useAuthApi() {
 
   async function logout() {
     const apiBase = resolveApiBase()
-    const response = await fetch(`${apiBase}/api/auth/logout`, {
+    const response = await requestWithTimeout(`${apiBase}/api/auth/logout`, {
       method: "POST",
       credentials: "include"
-    })
+    }, AUTH_MUTATION_TIMEOUT_MS)
 
     if (!response.ok) {
       throw new Error("退出登录失败，请稍后再试。")
