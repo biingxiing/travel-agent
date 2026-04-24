@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
+import { Motion } from 'motion-v'
 import {
   Calendar,
   DollarSign,
@@ -276,9 +277,13 @@ void currentScore
       </section>
 
       <section v-if="activeDailyPlans.length" class="plan-days">
-        <article
+        <Motion
           v-for="day in activeDailyPlans"
           :key="day.day"
+          tag="article"
+          :initial="{ opacity: 0 }"
+          :animate="{ opacity: 1 }"
+          :transition="{ duration: 0.24, ease: [0.2, 0.7, 0.25, 1] }"
           class="plan-day"
         >
           <header class="day-head">
@@ -289,9 +294,13 @@ void currentScore
           </header>
 
           <div class="day-items">
-            <article
+            <Motion
               v-for="(item, idx) in day.items"
               :key="`${day.day}-${idx}`"
+              tag="article"
+              :initial="{ y: 8, opacity: 0 }"
+              :animate="{ y: 0, opacity: 1 }"
+              :transition="{ duration: 0.32, ease: [0.2, 0.7, 0.25, 1], delay: idx * 0.04 }"
               class="poi-card"
             >
               <div class="poi-thumb" :style="{ background: poiGradient(item.type) }">
@@ -320,9 +329,9 @@ void currentScore
                   <button type="button" class="poi-action" aria-label="详情"><Info :size="14" :stroke-width="1.5" /></button>
                 </Tooltip>
               </div>
-            </article>
+            </Motion>
           </div>
-        </article>
+        </Motion>
       </section>
 
       <div v-if="displayTips.length" class="preview-card tips-card">

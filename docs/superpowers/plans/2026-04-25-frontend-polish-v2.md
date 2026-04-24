@@ -3219,7 +3219,7 @@ git commit -m "refactor(web/react): extract ReactProgressBar / ClarifyCard / Max
 - Modify: `apps/web/components/TripHistoryGrid.vue`
 - Modify: `apps/web/components/PlanningPreview.vue`
 
-- [ ] **Step 1: ChatPanel — Motion slideUp**
+- [x] **Step 1: ChatPanel — Motion slideUp**
 
 In `ChatPanel.vue`'s script, add `import { Motion } from 'motion-v'`.
 
@@ -3243,15 +3243,15 @@ Replace the `<article v-for="(message, index) in messages" ...>` with:
 
 Remove the old `animation-delay` style binding and any `animation: bubble-in` CSS rule.
 
-- [ ] **Step 2: TripHistoryGrid — stagger cards**
+- [x] **Step 2: TripHistoryGrid — stagger cards**
 
 Import Motion and wrap `<article class="history-card">` the same way with per-index delay. Remove the old CSS entrance animation if any.
 
-- [ ] **Step 3: PlanningPreview — animate day + POI**
+- [x] **Step 3: PlanningPreview — animate day + POI**
 
 Import Motion. Wrap `<article class="plan-day">` in Motion (fadeIn, no delay). Wrap each `<article class="poi-card">` in Motion with slideUp + `delay: idx * 0.04`.
 
-- [ ] **Step 4: Verify build + visual**
+- [x] **Step 4: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -3259,7 +3259,7 @@ pnpm build:web
 
 Dev + Playwright: refresh landing and workspace. Bubbles, history cards, and POI cards should fade-slide in with a staggered cascade.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/components/ChatPanel.vue apps/web/components/TripHistoryGrid.vue apps/web/components/PlanningPreview.vue

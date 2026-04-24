@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Motion } from 'motion-v'
 import type { ChatMessage } from "~/types/itinerary"
 import ScrollArea from '~/components/ui/ScrollArea.vue'
 import StreamingBubble from '~/components/states/StreamingBubble.vue'
@@ -29,16 +30,19 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
     </header>
 
     <ScrollArea class="conversation-list">
-      <article
+      <Motion
         v-for="(message, index) in messages"
         :key="message.id"
+        tag="article"
         v-show="message.content.trim()"
+        :initial="{ y: 8, opacity: 0 }"
+        :animate="{ y: 0, opacity: 1 }"
+        :transition="{ duration: 0.32, ease: [0.2, 0.7, 0.25, 1], delay: Math.min(index * 0.04, 0.24) }"
         class="bubble"
         :class="`bubble-${message.role}`"
-        :style="{ animationDelay: `${Math.min(index * 60, 480)}ms` }"
       >
         <p class="bubble-content">{{ message.content }}</p>
-      </article>
+      </Motion>
 
       <StreamingBubble
         v-if="phase === 'planning'"
@@ -143,7 +147,6 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   background: var(--bg-subtle);
   max-width: 85%;
   position: relative;
-  animation: bubble-in var(--dur-slow) var(--ease-out) both;
 }
 
 .bubble-user {
@@ -188,11 +191,6 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
 @keyframes panel-in {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes bubble-in {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; }
 }
 
 @media (max-width: 640px) {

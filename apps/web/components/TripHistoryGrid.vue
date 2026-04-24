@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { Motion } from 'motion-v'
 import { Clock, Footprints, Compass } from 'lucide-vue-next'
 import EmptyState from '~/components/states/EmptyState.vue'
 import { relativeTime } from '~/utils/relative-time'
@@ -44,9 +45,13 @@ function onRemove(entry: TripHistoryEntry) {
     />
 
     <div v-else class="history-grid">
-      <article
-        v-for="entry in entries"
+      <Motion
+        v-for="(entry, index) in entries"
         :key="entry.sessionId"
+        tag="article"
+        :initial="{ y: 8, opacity: 0 }"
+        :animate="{ y: 0, opacity: 1 }"
+        :transition="{ duration: 0.32, ease: [0.2, 0.7, 0.25, 1], delay: Math.min(index * 0.04, 0.24) }"
         class="history-card"
         role="button"
         tabindex="0"
@@ -82,7 +87,7 @@ function onRemove(entry: TripHistoryEntry) {
             </span>
           </div>
         </div>
-      </article>
+      </Motion>
     </div>
   </section>
 </template>
