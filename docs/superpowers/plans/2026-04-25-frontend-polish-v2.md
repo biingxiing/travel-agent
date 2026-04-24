@@ -1308,7 +1308,7 @@ git commit -m "feat(web/states): LoadingSkeleton (plan/chat/history/generic vari
 **Files:**
 - Create: `apps/web/components/states/ErrorState.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1389,7 +1389,7 @@ defineEmits<{ retry: [] }>()
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
