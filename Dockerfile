@@ -6,11 +6,15 @@ WORKDIR /app
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
+COPY packages/domain/package.json packages/domain/package.json
+COPY packages/memory-pg/package.json packages/memory-pg/package.json
 COPY packages/shared/package.json packages/shared/package.json
 
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter @travel-agent/api...
 
 COPY apps/api ./apps/api
+COPY packages/domain ./packages/domain
+COPY packages/memory-pg ./packages/memory-pg
 COPY packages/shared ./packages/shared
 COPY plugins ./plugins
 
