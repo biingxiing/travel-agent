@@ -1071,7 +1071,7 @@ git commit -m "feat(web/ui): Dialog wrapper (Reka UI) with title/description/act
 **Files:**
 - Create: `apps/web/components/ui/ScrollArea.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1120,7 +1120,7 @@ defineProps<{ maxHeight?: string }>()
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
