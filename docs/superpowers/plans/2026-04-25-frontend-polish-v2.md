@@ -368,7 +368,7 @@ git commit -m "feat(web): add motion presets (fadeIn, slideUp, pop, listStagger,
 - Create: `apps/web/components/ui/Toaster.vue`
 - Modify: `apps/web/app.vue`
 
-- [ ] **Step 1: Create the Toaster wrapper**
+- [x] **Step 1: Create the Toaster wrapper**
 
 `apps/web/components/ui/Toaster.vue`:
 
@@ -399,7 +399,7 @@ import 'vue-sonner/style.css'
 </template>
 ```
 
-- [ ] **Step 2: Create the `$toast` plugin**
+- [x] **Step 2: Create the `$toast` plugin**
 
 `apps/web/plugins/toast.client.ts`:
 
@@ -417,7 +417,7 @@ export default defineNuxtPlugin(() => ({
 }))
 ```
 
-- [ ] **Step 3: Mount `<Toaster />` in app.vue**
+- [x] **Step 3: Mount `<Toaster />` in app.vue**
 
 Read current `apps/web/app.vue` first. If it's `<NuxtPage />` (or a similar single-line template), replace with:
 
@@ -436,14 +436,14 @@ import Toaster from '~/components/ui/Toaster.vue'
 
 If it already has structure, add `<Toaster />` just before the closing `</template>`.
 
-- [ ] **Step 4: Verify build**
+- [x] **Step 4: Verify build**
 
 ```bash
 pnpm build:web
 ```
 Expected: no errors, vue-sonner bundled.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/plugins/toast.client.ts apps/web/components/ui/Toaster.vue apps/web/app.vue
