@@ -1,11 +1,27 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
-import { Calendar, DollarSign, Users, Award } from "lucide-vue-next"
+import {
+  Calendar,
+  DollarSign,
+  Users,
+  Award,
+  Bed,
+  UtensilsCrossed,
+  Mountain,
+  TramFront,
+  Compass,
+  StickyNote,
+  Map as MapIcon,
+  Replace,
+  Info,
+} from "lucide-vue-next"
 import type { Plan, PlanItem } from "@travel-agent/shared"
 import { useChatStore } from "~/stores/chat"
 import { useWorkspaceStore } from "~/stores/workspace"
 import type { ItineraryScore, ItemScore } from "~/utils/scoring"
 import { scorePlan, buildItemScoreMap, gradeColor } from "~/utils/scoring"
+import { poiVisualForType } from "~/utils/poi-visual"
+import Tooltip from "~/components/ui/Tooltip.vue"
 
 const props = defineProps<{
   phase: "idle" | "planning" | "result" | "error"
@@ -92,6 +108,22 @@ const statTravelers = computed(() => currentPlan.value?.travelers ?? 1)
 const statScore = computed(
   () => currentScore.value?.overall ?? itineraryScore.value?.total ?? null,
 )
+
+const POI_ICON_COMPONENTS: Record<string, unknown> = {
+  bed: Bed,
+  "utensils-crossed": UtensilsCrossed,
+  mountain: Mountain,
+  "tram-front": TramFront,
+  compass: Compass,
+  "sticky-note": StickyNote,
+}
+function poiIconComponent(type: string | undefined) {
+  const visual = poiVisualForType(type)
+  return POI_ICON_COMPONENTS[visual.icon] ?? Mountain
+}
+function poiGradient(type: string | undefined) {
+  return poiVisualForType(type).gradient
+}
 
 function itemBadgeColor(dayNum: number, idx: number): string | null {
   const scored = itemScoreMap.value.get(`${dayNum}-${idx}`)
@@ -243,44 +275,55 @@ void currentScore
         </div>
       </section>
 
-      <article
-        v-for="(day, dayIdx) in activeDailyPlans"
-        :key="day.day"
-        class="preview-card day-card"
-        :style="{ animationDelay: `${dayIdx * 60}ms` }"
-      >
-        <header class="day-head">
-          <p class="masthead-kicker day-kicker">
-            第 {{ day.day }} 天 · Day {{ String(day.day).padStart(2, '0') }}
-          </p>
-          <h3 class="day-theme">{{ day.theme || `第 ${day.day} 天` }}</h3>
-        </header>
-        <hr class="card-rule" />
-
-        <div class="day-items">
-          <div
-            v-for="(item, idx) in day.items"
-            :key="`${day.day}-${idx}-${item.title}`"
-            class="day-item"
-          >
-            <span class="day-item-time data-tag">{{ itemTime(item) || "—" }}</span>
-            <span class="day-item-type">{{ itemTypeLabel(item.type) }}</span>
-            <div class="day-item-body">
-              <strong class="day-item-title">{{ item.title }}</strong>
-              <span
-                v-if="itemBadgeColor(day.day, idx)"
-                class="day-item-badge"
-                :style="{ background: itemBadgeColor(day.day, idx) ?? undefined }"
-                :title="itemBadgeTitle(day.day, idx)"
-              />
-              <p v-if="itemDescription(item)" class="day-item-desc">{{ itemDescription(item) }}</p>
-              <small v-if="itemTips(item).length" class="day-item-tip">
-                {{ itemTips(item).join("；") }}
-              </small>
+      <section v-if="activeDailyPlans.length" class="plan-days">
+        <article
+          v-for="day in activeDailyPlans"
+          :key="day.day"
+          class="plan-day"
+        >
+          <header class="day-head">
+            <div class="day-num">D{{ day.day }}</div>
+            <div class="day-title-row">
+              <strong class="day-title">{{ day.theme || `Day ${day.day}` }}</strong>
             </div>
+          </header>
+
+          <div class="day-items">
+            <article
+              v-for="(item, idx) in day.items"
+              :key="`${day.day}-${idx}`"
+              class="poi-card"
+            >
+              <div class="poi-thumb" :style="{ background: poiGradient(item.type) }">
+                <component :is="poiIconComponent(item.type)" :size="22" :stroke-width="1.5" />
+              </div>
+              <div class="poi-body">
+                <strong class="poi-title">{{ item.title }}</strong>
+                <div class="poi-meta">
+                  <span v-if="item.description" class="poi-desc">{{ item.description }}</span>
+                </div>
+              </div>
+              <div class="poi-right">
+                <span v-if="item.time" class="poi-time tabular">{{ item.time }}</span>
+                <span v-if="item.estimatedCost" class="poi-cost tabular">
+                  <span class="currency-unit">{{ (item.estimatedCost.currency || 'CNY') === 'CNY' ? '¥' : item.estimatedCost.currency }}</span>{{ item.estimatedCost.amount.toLocaleString() }}
+                </span>
+              </div>
+              <div class="poi-actions">
+                <Tooltip label="在地图上查看">
+                  <button type="button" class="poi-action" aria-label="在地图上查看"><MapIcon :size="14" :stroke-width="1.5" /></button>
+                </Tooltip>
+                <Tooltip label="替换">
+                  <button type="button" class="poi-action" aria-label="替换"><Replace :size="14" :stroke-width="1.5" /></button>
+                </Tooltip>
+                <Tooltip label="详情">
+                  <button type="button" class="poi-action" aria-label="详情"><Info :size="14" :stroke-width="1.5" /></button>
+                </Tooltip>
+              </div>
+            </article>
           </div>
-        </div>
-      </article>
+        </article>
+      </section>
 
       <div v-if="displayTips.length" class="preview-card tips-card">
         <p class="masthead-kicker">出行建议</p>
@@ -873,5 +916,161 @@ void currentScore
 
 @media (max-width: 640px) {
   .plan-stats { grid-template-columns: repeat(2, 1fr); }
+}
+
+.plan-days { display: flex; flex-direction: column; gap: 18px; }
+
+.plan-day { position: relative; }
+
+.day-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 4px 8px;
+}
+.day-num {
+  width: 30px; height: 30px;
+  border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--gradient-brand);
+  color: var(--text-inverse);
+  font-family: var(--font-mono);
+  font-size: 10px; font-weight: 700;
+  letter-spacing: 0.04em;
+  box-shadow: var(--shadow-brand);
+}
+.day-title-row { display: flex; flex-direction: column; gap: 2px; }
+.day-title {
+  font-family: var(--font-display);
+  font-size: var(--type-body-lg-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.day-items {
+  display: flex; flex-direction: column; gap: 8px;
+  position: relative;
+  padding-left: 14px;
+  margin-left: 14px;
+  border-left: 1px solid var(--border);
+}
+
+.poi-card {
+  position: relative;
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-out);
+}
+.poi-card:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+  border-color: var(--border-strong);
+}
+.poi-card::before {
+  content: "";
+  position: absolute;
+  left: -14px;
+  top: 50%;
+  width: 14px; height: 1px;
+  background: var(--border);
+}
+
+.poi-thumb {
+  width: 56px; height: 56px;
+  border-radius: var(--r-sm);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--text-inverse);
+  position: relative;
+  overflow: hidden;
+}
+
+.poi-body { min-width: 0; }
+.poi-title {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--type-body-size);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-bottom: 4px;
+  color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.poi-meta {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  font-size: var(--type-body-sm-size);
+  color: var(--text-muted);
+}
+.poi-desc {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+}
+
+.poi-right {
+  display: flex; flex-direction: column; align-items: flex-end;
+  gap: 3px;
+}
+.poi-time {
+  font-family: var(--font-mono);
+  font-size: var(--type-mono-xs-size);
+  color: var(--text-subtle);
+}
+.poi-cost {
+  font-family: var(--font-display);
+  font-size: var(--type-body-size);
+  font-weight: 600;
+  color: var(--text);
+}
+
+.poi-actions {
+  position: absolute;
+  right: 10px; bottom: 10px;
+  display: inline-flex; gap: 4px;
+  opacity: 0;
+  transform: translateY(4px);
+  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
+  pointer-events: none;
+}
+.poi-card:hover .poi-actions {
+  opacity: 1; transform: translateY(0);
+  pointer-events: auto;
+}
+.poi-action {
+  appearance: none;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px;
+  border-radius: var(--r-xs);
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.poi-action:hover { border-color: var(--brand-blue); color: var(--brand-blue); }
+
+@media (max-width: 640px) {
+  .poi-card { grid-template-columns: 44px 1fr; gap: 10px; }
+  .poi-right {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    justify-content: space-between;
+  }
+  .poi-actions {
+    position: static; opacity: 1; transform: none; pointer-events: auto;
+    margin-top: 6px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .poi-card { transition: none; }
+  .poi-actions { transition: none; }
 }
 </style>

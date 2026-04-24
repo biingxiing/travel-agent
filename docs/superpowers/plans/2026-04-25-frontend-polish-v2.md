@@ -2866,7 +2866,7 @@ git commit -m "feat(web/plan): Plan Hero slab with 4 stat cards (Days/Budget/Peo
 **Files:**
 - Modify: `apps/web/components/PlanningPreview.vue` (day timeline section only)
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports**
 
 Merge into existing `<script setup>` imports:
 ```ts
@@ -2875,7 +2875,7 @@ import { poiVisualForType } from '~/utils/poi-visual'
 import Tooltip from '~/components/ui/Tooltip.vue'
 ```
 
-- [ ] **Step 2: Add icon map and helpers**
+- [x] **Step 2: Add icon map and helpers**
 
 ```ts
 const POI_ICON_COMPONENTS: Record<string, unknown> = {
@@ -2895,7 +2895,7 @@ function poiGradient(type: string | undefined) {
 }
 ```
 
-- [ ] **Step 3: Replace the Day list block**
+- [x] **Step 3: Replace the Day list block**
 
 Find the existing Day rendering loop (where `activeDailyPlans` is mapped into `.result-day-card` elements). Replace the entire section with:
 
@@ -2951,7 +2951,7 @@ Find the existing Day rendering loop (where `activeDailyPlans` is mapped into `.
 </section>
 ```
 
-- [ ] **Step 4: Append Day timeline + POI card styles**
+- [x] **Step 4: Append Day timeline + POI card styles**
 
 ```css
 .plan-days { display: flex; flex-direction: column; gap: 18px; }
@@ -3111,7 +3111,7 @@ Find the existing Day rendering loop (where `activeDailyPlans` is mapped into `.
 }
 ```
 
-- [ ] **Step 5: Verify build + visual**
+- [x] **Step 5: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -3119,7 +3119,7 @@ pnpm build:web
 
 Dev + Playwright: load a plan. Each day shows a "D1"/"D2" gradient badge + theme; POI cards have gradient thumbnail matching the type; hover reveals 3 ghost action buttons with tooltips.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/components/PlanningPreview.vue
