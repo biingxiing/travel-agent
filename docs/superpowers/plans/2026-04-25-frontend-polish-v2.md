@@ -1204,7 +1204,7 @@ git commit -m "feat(web/states): EmptyState component (Lucide icon + title + hin
 **Files:**
 - Create: `apps/web/components/states/LoadingSkeleton.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -1293,7 +1293,7 @@ defineProps<{
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
