@@ -7,18 +7,29 @@ import type { SkillManifest } from '../registry/types.js'
 
 const MAX_SKILL_ROUNDS = 4
 
-const SYSTEM_PROMPT_INITIAL = `你是专业旅行规划师。基于 TripBrief 和对话生成完整 JSON 行程。
+const SYSTEM_PROMPT_INITIAL = `你是专业旅行规划师。基于 TripBrief、对话和（如果提供的）"真实数据上下文"生成完整 JSON 行程。
 
-要求：
-- 信息充足：先用 1-2 句自然语言告诉用户你在规划，然后另起一行输出 \`\`\`json 代码块
-- 信息不足：只用自然语言追问，不输出 JSON
-- 行程每天至少 3 个活动，包括交通/住宿/景点
-- 跨城交通：必须调用 flyai skill，传 command="search-flight" 或 "search-train" + origin + destination + depDate
-- 住宿：必须调用 flyai skill 传 command="search-hotel" + destName + checkInDate + checkOutDate
-- POI / 景点：可以调 flyai 传 command="search-poi"
-- 拿到 flyai 真实结果后，把航班号/酒店名/房型/价格 直接写到对应 PlanItem 的 description
-- 景点 description 必须包含：开放时间(09:00-17:00 或全天)、门票(¥60/人 或 免费)、建议游览时长(2 小时)
-- 输出 JSON 严格符合 PlanSchema：title/destination/days/travelers/pace/dailyPlans/estimatedBudget/tips/disclaimer
+输入说明：
+- system 消息中可能附带「真实航班/酒店/景点数据」。这些是已经调用过 flyai 拿到的真实结果。
+- **不要再说"我无法实时查询"**——你已经拿到了真实数据，直接基于这些数据填 PlanItem。
+- 如果某类数据没出现在 system 消息中（例如同城出行没有航班数据），就按一般常识合理安排，不要拒绝输出。
+- 如确实需要补充查询，可以调用 flyai tool（command=search-flight / search-hotel / search-poi / search-train）；否则不必调用。
+
+输出要求：
+- 信息充足：先用 1-2 句自然语言告诉用户你在规划，然后另起一行输出 \`\`\`json 代码块（仅一个）。
+- 信息不足时（destination/days 缺失）才用自然语言追问，不输出 JSON。
+- **每天 dailyPlans[].items 至少 3 条且不得为空数组**。
+- 必须包含：跨城出行的交通项（含真实航班号/车次和价格，从 flyai 数据中挑选）、至少 1 个酒店项（真实酒店名 + 价格）、若干景点和餐饮。
+- 景点 description 必须包含：开放时间(09:00-17:00 或全天)、门票(¥60/人 或 免费)、建议游览时长(2 小时)。
+- 交通 description 写明航班号/车次、起止机场或车站、起降时间、票价。
+- 酒店 description 写明酒店名、星级或类型、单晚价格。
+
+JSON Schema 严格要求（很重要，否则会被拒绝）：
+- 顶层字段：title, destination, days, travelers, pace, dailyPlans, estimatedBudget, tips, disclaimer
+- pace 取值只能是英文枚举：relaxed | balanced | packed
+- 每个 dailyPlans[].items[].type **必须是英文枚举之一**：attraction | meal | transport | lodging | activity | note （不要写"交通"/"住宿"/"景点"等中文）
+- 每个 item 必须有 type 和 title 两个字段
+- estimatedBudget = { amount: 数字, currency: "CNY", breakdown: [{category: "transport"|"lodging"|"food"|"tickets"|"other", amount: 数字}] }
 `
 
 const SYSTEM_PROMPT_REFINE = `你是旅行行程修补师。根据 critic 报告，**只修补**问题项，**不要重写整个行程**。
@@ -64,6 +75,36 @@ function normalizePace(raw: unknown): 'relaxed' | 'balanced' | 'packed' | undefi
   return 'balanced'
 }
 
+const ITEM_TYPE_MAP: Record<string, 'attraction' | 'meal' | 'transport' | 'lodging' | 'activity' | 'note'> = {
+  attraction: 'attraction', meal: 'meal', transport: 'transport',
+  lodging: 'lodging', activity: 'activity', note: 'note',
+  '景点': 'attraction', '景区': 'attraction', '观光': 'attraction',
+  '餐饮': 'meal', '美食': 'meal', '用餐': 'meal', '餐厅': 'meal',
+  '交通': 'transport', '出行': 'transport', '航班': 'transport', '高铁': 'transport', '火车': 'transport',
+  '住宿': 'lodging', '酒店': 'lodging', '入住': 'lodging',
+  '活动': 'activity', '体验': 'activity',
+  '备注': 'note', '提示': 'note',
+}
+
+function normalizePlanItem(item: Record<string, unknown>): Record<string, unknown> {
+  const out = { ...item }
+  if (typeof out.type === 'string' && !ITEM_TYPE_MAP[out.type]) {
+    // Try fuzzy match on substring
+    for (const [zh, en] of Object.entries(ITEM_TYPE_MAP)) {
+      if ((out.type as string).includes(zh)) { out.type = en; break }
+    }
+  } else if (typeof out.type === 'string') {
+    out.type = ITEM_TYPE_MAP[out.type]
+  }
+  if (typeof out.type !== 'string') out.type = 'activity'
+  if (typeof out.title !== 'string' || !out.title) {
+    out.title = typeof out.description === 'string' && out.description
+      ? (out.description as string).slice(0, 40)
+      : '未命名'
+  }
+  return out
+}
+
 // Normalize common LLM output drifts before zod parse.
 function normalizePlanJson(raw: unknown): unknown {
   if (!raw || typeof raw !== 'object') return raw
@@ -76,7 +117,9 @@ function normalizePlanJson(raw: unknown): unknown {
   if (Array.isArray(obj.dailyPlans)) {
     obj.dailyPlans = (obj.dailyPlans as Array<Record<string, unknown>>).map((d) => ({
       ...d,
-      items: Array.isArray(d.items) ? d.items : [],
+      items: Array.isArray(d.items)
+        ? (d.items as Array<Record<string, unknown>>).map(normalizePlanItem)
+        : [],
     }))
   }
 
@@ -134,11 +177,15 @@ async function runWithToolLoop(
 }
 
 export async function* runInitial(
-  brief: TripBrief, messages: Message[],
+  brief: TripBrief, messages: Message[], prefetchedContext: string[] = [],
 ): AsyncGenerator<ChatStreamEvent, Plan | null, void> {
   const messageId = randomUUID()
+  const prefetchedMessages: OpenAI.Chat.ChatCompletionMessageParam[] = prefetchedContext.map(
+    (content) => ({ role: 'system', content }),
+  )
   const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: SYSTEM_PROMPT_INITIAL },
+    ...prefetchedMessages,
     { role: 'user', content: `TripBrief:\n${JSON.stringify(brief)}` },
     ...messages.filter((m) => m.role === 'user' || m.role === 'assistant').map((m) => ({
       role: m.role as 'user' | 'assistant', content: m.content,
