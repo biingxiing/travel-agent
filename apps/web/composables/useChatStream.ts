@@ -1,5 +1,5 @@
 import { useApiBase } from './useApiBase'
-import type { ChatStreamEvent } from '@travel-agent/shared'
+import type { ChatStreamEvent, SessionState } from '@travel-agent/shared'
 
 export interface ChatStreamHandlers {
   onEvent: (event: ChatStreamEvent) => void
@@ -13,6 +13,7 @@ export interface ChatStreamSession {
   continueOptimization: (handlers: ChatStreamHandlers) => Promise<void>
   setSessionId: (id: string | null) => void
   getSessionId: () => string | null
+  loadSession: (id: string) => Promise<{ session: SessionState }>
 }
 
 export function useChatStream(initialSessionId: string | null = null): ChatStreamSession {
@@ -86,8 +87,16 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
     }, handlers)
   }
 
+  async function loadSession(id: string): Promise<{ session: SessionState }> {
+    const r = await fetch(`${resolveApiBase()}/api/sessions/${id}`, { credentials: 'include' })
+    if (!r.ok) throw new Error(`Load session failed: ${r.status}`)
+    const body = await r.json() as { session: SessionState }
+    sessionId = body.session.id
+    return body
+  }
+
   return {
-    ensureSessionId, sendMessage, continueOptimization,
+    ensureSessionId, sendMessage, continueOptimization, loadSession,
     setSessionId: (id) => { sessionId = id },
     getSessionId: () => sessionId,
   }

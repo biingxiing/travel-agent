@@ -354,9 +354,19 @@ async function onContinue() {
   })
 }
 
-function loadHistoryEntry(_entry: TripHistoryEntry) {
-  // History session restore is currently not supported in the ReAct flow.
-  // The user can re-enter their request in the planner card to start a new session.
+async function loadHistoryEntry(entry: TripHistoryEntry) {
+  try {
+    const { session } = await stream.loadSession(entry.sessionId)
+    workspaceStore.hydrateFromSession(session)
+    workspaceStore.persistState()
+    // Reset chat conversation; ReAct sessions restore visual state via workspace
+    // (plan + score). Detailed message history is not bulk-restored — user can
+    // continue with a new prompt against the restored session.
+    chatStore.resetConversation()
+    chatStore.setSession(session.id)
+  } catch (err) {
+    console.error("[loadHistoryEntry] failed", err)
+  }
 }
 
 function returnToLanding() {
