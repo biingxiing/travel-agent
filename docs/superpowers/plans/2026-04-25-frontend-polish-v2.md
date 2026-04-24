@@ -2635,7 +2635,7 @@ git commit -m "feat(web/landing): TripHistoryGrid with destination color bands +
 **Files:**
 - Modify: `apps/web/components/ChatPanel.vue`
 
-- [ ] **Step 1: Add imports**
+- [x] **Step 1: Add imports**
 
 Top of `<script setup>`:
 ```ts
@@ -2645,7 +2645,7 @@ import { useChatStore } from '~/stores/chat'
 import { storeToRefs } from 'pinia'
 ```
 
-- [ ] **Step 2: Read loopStatus-related fields from the chat store**
+- [x] **Step 2: Read loopStatus-related fields from the chat store**
 
 In the same `<script setup>`, add:
 ```ts
@@ -2653,7 +2653,7 @@ const chatStore = useChatStore()
 const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
 ```
 
-- [ ] **Step 3: Replace the conversation list**
+- [x] **Step 3: Replace the conversation list**
 
 Find `<div class="conversation-list">...</div>`. Replace with:
 
@@ -2683,7 +2683,7 @@ Find `<div class="conversation-list">...</div>`. Replace with:
 
 Remove the old `<article v-if="phase === 'planning'" class="bubble bubble-assistant bubble-progress">...</article>` block.
 
-- [ ] **Step 4: Soften the composer separator**
+- [x] **Step 4: Soften the composer separator**
 
 Find the existing `.conversation-composer` rule in scoped style. Change:
 ```css
@@ -2694,7 +2694,7 @@ to:
 border-top: 1px solid var(--border-subtle-2);
 ```
 
-- [ ] **Step 5: Verify build + visual**
+- [x] **Step 5: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -2705,7 +2705,7 @@ Dev + Playwright: Submit a prompt. Observe:
 - The streaming state shows the new StreamingBubble with Sparkles icon
 - When `loopStatus` is `refining`, the bubble text says "第 N / M 轮优化中…" instead of `agentStatus`
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/components/ChatPanel.vue

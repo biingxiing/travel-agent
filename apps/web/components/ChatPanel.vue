@@ -1,5 +1,9 @@
 <script setup lang="ts">
 import type { ChatMessage } from "~/types/itinerary"
+import ScrollArea from '~/components/ui/ScrollArea.vue'
+import StreamingBubble from '~/components/states/StreamingBubble.vue'
+import { useChatStore } from '~/stores/chat'
+import { storeToRefs } from 'pinia'
 
 defineProps<{
   messages: ChatMessage[]
@@ -7,6 +11,9 @@ defineProps<{
   agentStatus: string
   streamSteps: string[]
 }>()
+
+const chatStore = useChatStore()
+const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
 </script>
 
 <template>
@@ -21,7 +28,7 @@ defineProps<{
       </span>
     </header>
 
-    <div class="conversation-list">
+    <ScrollArea class="conversation-list">
       <article
         v-for="(message, index) in messages"
         :key="message.id"
@@ -33,19 +40,15 @@ defineProps<{
         <p class="bubble-content">{{ message.content }}</p>
       </article>
 
-      <article v-if="phase === 'planning'" class="bubble bubble-assistant bubble-progress">
-        <div class="progress-inline">
-          <span class="stream-dot" />
-          <span class="stream-dot" />
-          <span class="stream-dot" />
-          <span class="progress-status">{{ agentStatus }}</span>
-        </div>
-
-        <ul v-if="streamSteps.length" class="progress-list">
-          <li v-for="step in streamSteps" :key="step">{{ step }}</li>
-        </ul>
-      </article>
-    </div>
+      <StreamingBubble
+        v-if="phase === 'planning'"
+        :status="agentStatus"
+        :steps="streamSteps"
+        :loop-status="loopStatus"
+        :iteration="iteration"
+        :max-iterations="maxIterations"
+      />
+    </ScrollArea>
 
     <div class="conversation-composer">
       <slot name="composer" />
@@ -176,68 +179,10 @@ defineProps<{
   word-break: break-word;
 }
 
-.bubble-progress {
-  background: var(--brand-blue-soft);
-  border-color: var(--brand-blue-border);
-  color: var(--brand-blue-deep);
-  border-left: 3px solid var(--brand-blue);
-}
-
-.progress-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--brand-blue-deep);
-}
-
-.progress-status {
-  color: var(--brand-blue-deep);
-}
-
-.stream-dot {
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: var(--brand-blue);
-  display: inline-block;
-  animation: dot-pulse 1.4s infinite var(--ease-out);
-}
-
-.stream-dot:nth-child(2) { animation-delay: 0.2s; }
-.stream-dot:nth-child(3) { animation-delay: 0.4s; }
-
-.progress-list {
-  margin: 10px 0 0;
-  padding-left: 18px;
-  list-style: none;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-family: var(--font-body);
-  font-size: 13px;
-  color: var(--text-muted);
-  line-height: 1.55;
-}
-
-.progress-list li {
-  position: relative;
-}
-
-.progress-list li::before {
-  content: "•";
-  position: absolute;
-  left: -14px;
-  top: 0;
-  color: var(--brand-blue);
-  font-weight: 700;
-}
-
 .conversation-composer {
   margin-top: 6px;
   padding-top: 14px;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--border-subtle-2);
 }
 
 @keyframes panel-in {
@@ -250,11 +195,6 @@ defineProps<{
   to { opacity: 1; }
 }
 
-@keyframes dot-pulse {
-  0%, 100% { opacity: 0.35; }
-  50% { opacity: 1; }
-}
-
 @media (max-width: 640px) {
   .conversation-shell { padding: 18px 18px 16px; }
   .panel-title h2 { font-size: 18px; }
@@ -263,8 +203,7 @@ defineProps<{
 
 @media (prefers-reduced-motion: reduce) {
   .conversation-shell,
-  .bubble,
-  .stream-dot {
+  .bubble {
     animation: none !important;
     transform: none !important;
   }
