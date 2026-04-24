@@ -872,7 +872,7 @@ git commit -m "feat(web/ui): Tooltip wrapper (Reka UI)"
 **Files:**
 - Create: `apps/web/components/ui/DropdownMenu.vue`
 
-- [ ] **Step 1: Implement**
+- [x] **Step 1: Implement**
 
 ```vue
 <script setup lang="ts">
@@ -948,7 +948,7 @@ export { DropdownMenuItem, DropdownMenuSeparator } from 'reka-ui'
 </style>
 ```
 
-- [ ] **Step 2: Verify build + commit**
+- [x] **Step 2: Verify build + commit**
 
 ```bash
 pnpm build:web
