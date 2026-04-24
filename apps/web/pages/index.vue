@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
+import { ChevronDown, History, LogOut, Settings, User } from "lucide-vue-next"
 import ChatPanel from "~/components/ChatPanel.vue"
 import HeroPlannerCard from "~/components/HeroPlannerCard.vue"
 import PlanningPreview from "~/components/PlanningPreview.vue"
 import PromptComposer from "~/components/PromptComposer.vue"
 import TripHistoryGrid from "~/components/TripHistoryGrid.vue"
+import DropdownMenu, { DropdownMenuItem, DropdownMenuSeparator } from "~/components/ui/DropdownMenu.vue"
 import { useAuthApi } from "~/composables/useAuthApi"
 import { useChatStream } from "~/composables/useChatStream"
 import { useTripHistory, type TripHistoryEntry } from "~/composables/useTripHistory"
@@ -19,6 +21,7 @@ const { fetchAuthStatus, logout } = useAuthApi()
 const { upsert: _upsertTripHistory } = useTripHistory()
 const route = useRoute()
 const router = useRouter()
+const { $toast } = useNuxtApp()
 
 if (import.meta.client) {
   chatStore.hydrateFromSessionStorage()
@@ -69,6 +72,15 @@ const pageNotice = computed(() => {
 
   return ""
 })
+const breadcrumbDestination = computed(() => currentPlan.value?.destination || "")
+
+watch(pageNotice, (msg) => {
+  if (msg) $toast.info(msg)
+})
+watch(authErrorMessage, (msg) => {
+  if (msg) $toast.error(msg)
+})
+
 const mainSectionStyle = computed(() =>
   mainSectionHeight.value ? { height: `${mainSectionHeight.value}px` } : undefined,
 )
@@ -461,31 +473,44 @@ onBeforeUnmount(() => {
         >
           旅行规划助手
         </button>
-        <p class="page-topbar-copy">
+        <div v-if="breadcrumbDestination" class="page-breadcrumb">
+          <span>规划</span>
+          <span class="page-breadcrumb-sep">/</span>
+          <span class="page-breadcrumb-current">{{ breadcrumbDestination }}</span>
+        </div>
+        <p v-else class="page-topbar-copy">
           输入目的地、天数、预算和偏好，我会生成可继续追问的旅行方案。
         </p>
       </div>
 
       <div class="page-topbar-actions">
-        <span class="page-user-chip">{{ username }}</span>
-        <button
-          type="button"
-          class="secondary-button"
-          :disabled="logoutPending"
-          @click="submitLogout"
-        >
-          {{ logoutPending ? "退出中…" : "退出登录" }}
-        </button>
+        <DropdownMenu>
+          <template #trigger>
+            <button type="button" class="page-user-chip">
+              {{ username }}
+              <ChevronDown :size="14" :stroke-width="1.75" />
+            </button>
+          </template>
+          <DropdownMenuItem @select="() => {}">
+            <User :size="14" :stroke-width="1.5" />
+            账号信息
+          </DropdownMenuItem>
+          <DropdownMenuItem @select="returnToLanding">
+            <History :size="14" :stroke-width="1.5" />
+            规划历史
+          </DropdownMenuItem>
+          <DropdownMenuItem @select="() => {}">
+            <Settings :size="14" :stroke-width="1.5" />
+            偏好设置
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem class="is-danger" @select="submitLogout">
+            <LogOut :size="14" :stroke-width="1.5" />
+            {{ logoutPending ? '退出中…' : '退出登录' }}
+          </DropdownMenuItem>
+        </DropdownMenu>
       </div>
     </header>
-
-    <p v-if="pageNotice" class="page-auth-notice">
-      {{ pageNotice }}
-    </p>
-
-    <p v-else-if="authErrorMessage" class="page-auth-error">
-      {{ authErrorMessage }}
-    </p>
 
     <template v-if="isLanding">
       <div class="landing-stack">
@@ -775,5 +800,39 @@ onBeforeUnmount(() => {
   .landing-stack { gap: 22px; padding-bottom: 24px; }
   .continue-card { flex-direction: column; align-items: stretch; }
   .continue-button { width: 100%; }
+}
+
+.page-breadcrumb {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  color: var(--text-subtle);
+  letter-spacing: 0.04em;
+  margin-top: 2px;
+}
+.page-breadcrumb-sep { color: var(--text-subtle); opacity: 0.6; }
+.page-breadcrumb-current { color: var(--text); font-weight: 600; }
+
+.page-user-chip {
+  appearance: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 5px 12px 5px 5px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-family: var(--font-display);
+  font-weight: 500;
+  font-size: var(--type-body-sm-size);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out);
+}
+.page-user-chip:hover { border-color: var(--border-strong); }
+.page-user-chip::before {
+  content: "";
+  display: inline-block;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--gradient-brand);
 }
 </style>

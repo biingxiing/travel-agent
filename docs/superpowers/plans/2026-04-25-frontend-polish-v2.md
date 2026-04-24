@@ -1827,7 +1827,7 @@ git commit -m "feat(web/react): MaxIterCard with continue-optimization CTA"
 **Files:**
 - Modify: `apps/web/pages/index.vue`
 
-- [ ] **Step 1: Add imports to `<script setup>`**
+- [x] **Step 1: Add imports to `<script setup>`**
 
 ```ts
 import DropdownMenu, { DropdownMenuItem, DropdownMenuSeparator } from '~/components/ui/DropdownMenu.vue'
@@ -1839,14 +1839,14 @@ Also add (near `const route = useRoute()`):
 const { $toast } = useNuxtApp()
 ```
 
-- [ ] **Step 2: Compute breadcrumb parts**
+- [x] **Step 2: Compute breadcrumb parts**
 
 Near the other computeds:
 ```ts
 const breadcrumbDestination = computed(() => currentPlan.value?.destination || '')
 ```
 
-- [ ] **Step 3: Replace the topbar block**
+- [x] **Step 3: Replace the topbar block**
 
 Find `<header class="page-topbar">...</header>` in the template. Replace entirely with:
 
@@ -1901,7 +1901,7 @@ Find `<header class="page-topbar">...</header>` in the template. Replace entirel
 </header>
 ```
 
-- [ ] **Step 4: Replace page banners with Toast watchers**
+- [x] **Step 4: Replace page banners with Toast watchers**
 
 Delete these template blocks:
 ```html
@@ -1915,7 +1915,7 @@ watch(pageNotice, (msg) => { if (msg) $toast.info(msg) })
 watch(authErrorMessage, (msg) => { if (msg) $toast.error(msg) })
 ```
 
-- [ ] **Step 5: Add breadcrumb + user-chip scoped styles**
+- [x] **Step 5: Add breadcrumb + user-chip scoped styles**
 
 Append to the scoped `<style>` block in `pages/index.vue`:
 
@@ -1955,7 +1955,7 @@ Append to the scoped `<style>` block in `pages/index.vue`:
 }
 ```
 
-- [ ] **Step 6: Verify build + visual**
+- [x] **Step 6: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -1963,7 +1963,7 @@ pnpm build:web
 
 Dev server + Playwright MCP: log in, confirm topbar has user-chip with ChevronDown; click to see DropdownMenu with 4 items. Navigate with `?login=1` and confirm a Toast appears top-right (not a page banner).
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/pages/index.vue
