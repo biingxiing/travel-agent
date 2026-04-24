@@ -701,7 +701,7 @@ git commit -m "feat(web): add destination-color util with semantic mapping; dele
 - Create: `apps/web/utils/relative-time.ts`
 - Create: `apps/web/utils/relative-time.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```ts
 import { describe, it, expect } from 'vitest'
@@ -742,9 +742,9 @@ describe('relativeTime', () => {
 })
 ```
 
-- [ ] **Step 2: Run — FAIL**
+- [x] **Step 2: Run — FAIL**
 
-- [ ] **Step 3: Implement**
+- [x] **Step 3: Implement**
 
 ```ts
 export function relativeTime(
@@ -774,9 +774,9 @@ export function relativeTime(
 }
 ```
 
-- [ ] **Step 4: Run — PASS** (7 tests)
+- [x] **Step 4: Run — PASS** (7 tests)
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add apps/web/utils/relative-time.ts apps/web/utils/relative-time.test.ts
