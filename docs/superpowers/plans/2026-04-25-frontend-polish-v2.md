@@ -2719,18 +2719,18 @@ git commit -m "feat(web/chat): ScrollArea + ReAct-aware StreamingBubble"
 **Files:**
 - Modify: `apps/web/components/PlanningPreview.vue` (only the plan header/summary section — not the whole file)
 
-- [ ] **Step 1: Locate the plan-header block**
+- [x] **Step 1: Locate the plan-header block**
 
 Open `apps/web/components/PlanningPreview.vue`. Find the block that currently renders the plan title and budget (likely starts with `<div class="plan-header-card">` or similar — search for `displayTitle`). Note its location.
 
-- [ ] **Step 2: Add imports**
+- [x] **Step 2: Add imports**
 
 Top of `<script setup>`:
 ```ts
 import { Calendar, DollarSign, Users, Award } from 'lucide-vue-next'
 ```
 
-- [ ] **Step 3: Add computed values for the 4 stats**
+- [x] **Step 3: Add computed values for the 4 stats**
 
 Below the existing computeds:
 ```ts
@@ -2743,7 +2743,7 @@ const statScore = computed(() => {
 })
 ```
 
-- [ ] **Step 4: Replace the plan-header block with the new Plan Hero slab**
+- [x] **Step 4: Replace the plan-header block with the new Plan Hero slab**
 
 Replace the existing header block (the one rendering `displayTitle` + budget/copy button) with:
 
@@ -2779,7 +2779,7 @@ Replace the existing header block (the one rendering `displayTitle` + budget/cop
 </section>
 ```
 
-- [ ] **Step 5: Add Plan Hero styles**
+- [x] **Step 5: Add Plan Hero styles**
 
 At the end of the scoped `<style>`:
 
@@ -2844,7 +2844,7 @@ At the end of the scoped `<style>`:
 }
 ```
 
-- [ ] **Step 6: Verify build + visual**
+- [x] **Step 6: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -2852,7 +2852,7 @@ pnpm build:web
 
 Dev + Playwright: with a plan loaded, the right panel's top shows Aurora hero slab with display-lg title + subtitle + 4 stat cards with Lucide icons.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add apps/web/components/PlanningPreview.vue

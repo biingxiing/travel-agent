@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
+import { Calendar, DollarSign, Users, Award } from "lucide-vue-next"
 import type { Plan, PlanItem } from "@travel-agent/shared"
 import { useChatStore } from "~/stores/chat"
 import { useWorkspaceStore } from "~/stores/workspace"
@@ -84,6 +85,14 @@ const itemScoreMap = computed<Map<string, ItemScore>>(() => {
   return buildItemScoreMap(currentPlan.value as never, itineraryScore.value)
 })
 
+const statDays = computed(() => currentPlan.value?.days ?? 0)
+const statBudget = computed(() => currentPlan.value?.estimatedBudget?.amount ?? 0)
+const statCurrency = computed(() => currentPlan.value?.estimatedBudget?.currency ?? "CNY")
+const statTravelers = computed(() => currentPlan.value?.travelers ?? 1)
+const statScore = computed(
+  () => currentScore.value?.overall ?? itineraryScore.value?.total ?? null,
+)
+
 function itemBadgeColor(dayNum: number, idx: number): string | null {
   const scored = itemScoreMap.value.get(`${dayNum}-${idx}`)
   if (!scored) return null
@@ -151,27 +160,37 @@ void currentScore
     </div>
 
     <div v-else-if="currentPlan" class="itinerary-body">
-      <div class="plan-header">
-        <div class="plan-header-text">
-          <p class="masthead-kicker">目的地</p>
-          <h1 class="plan-display-title">{{ displayTitle }}</h1>
-          <p v-if="displaySubtitle" class="plan-subtitle-line">{{ displaySubtitle }}</p>
+      <section v-if="currentPlan" class="plan-hero-slab">
+        <h2 class="plan-hero-title">{{ displayTitle }}</h2>
+        <p v-if="displaySubtitle" class="plan-hero-sub">{{ displaySubtitle }}</p>
+
+        <div class="plan-stats">
+          <div class="plan-stat">
+            <span class="plan-stat-label"><Calendar :size="12" :stroke-width="1.5" />DAYS</span>
+            <span class="plan-stat-value tabular">
+              {{ statDays }}<span class="currency-unit" style="margin-left: 3px;">天</span>
+            </span>
+          </div>
+          <div class="plan-stat">
+            <span class="plan-stat-label"><DollarSign :size="12" :stroke-width="1.5" />BUDGET</span>
+            <span class="plan-stat-value tabular">
+              <span class="currency-unit">{{ statCurrency === 'CNY' ? '¥' : statCurrency }}</span>{{ statBudget.toLocaleString() }}
+            </span>
+          </div>
+          <div class="plan-stat">
+            <span class="plan-stat-label"><Users :size="12" :stroke-width="1.5" />PEOPLE</span>
+            <span class="plan-stat-value tabular">{{ statTravelers }}</span>
+          </div>
+          <div class="plan-stat">
+            <span class="plan-stat-label"><Award :size="12" :stroke-width="1.5" />SCORE</span>
+            <span class="plan-stat-value tabular">
+              {{ statScore ?? '—' }}<span class="currency-unit" style="margin-left: 3px;">/ 100</span>
+            </span>
+          </div>
         </div>
-        <button type="button" class="copy-button">复制</button>
-      </div>
+      </section>
 
       <ItineraryScore v-if="itineraryScore" :score="itineraryScore" />
-
-      <div v-if="activeBudget" class="budget-stamp">
-        <div class="budget-stamp-kicker">
-          <span class="masthead-kicker">预算估算</span>
-          <span class="budget-stamp-note">本次方案预估总费用</span>
-        </div>
-        <div class="budget-stamp-value">
-          <span class="budget-currency">{{ activeBudget.currency }}</span>
-          <span class="budget-amount">{{ activeBudget.amount }}</span>
-        </div>
-      </div>
 
       <div class="workspace-grid">
         <section class="preview-card">
@@ -795,5 +814,64 @@ void currentScore
 
 @media (prefers-reduced-motion: reduce) {
   .itinerary-body, .day-card, .planning-step { animation: none; }
+}
+
+.plan-hero-slab {
+  position: relative;
+  overflow: hidden;
+  padding: 18px 20px 20px;
+  margin-bottom: 14px;
+  background: var(--gradient-aurora-soft), var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+
+.plan-hero-title {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: var(--type-display-lg-size);
+  font-weight: 700;
+  letter-spacing: var(--type-display-lg-tracking);
+  line-height: 1.15;
+  color: var(--text);
+}
+.plan-hero-sub {
+  margin: 0;
+  font-size: var(--type-body-sm-size);
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.plan-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-top: 14px;
+}
+.plan-stat {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+}
+.plan-stat-label {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--text-subtle);
+}
+.plan-stat-label :deep(svg) { color: var(--text-subtle); }
+.plan-stat-value {
+  font-family: var(--font-display);
+  font-size: var(--type-subhead-size);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+@media (max-width: 640px) {
+  .plan-stats { grid-template-columns: repeat(2, 1fr); }
 }
 </style>
