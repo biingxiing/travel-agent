@@ -3273,7 +3273,7 @@ git commit -m "feat(web): apply motion-v slideUp + stagger to chat/history/POI l
 **Files:**
 - Possibly minor updates across any touched component
 
-- [ ] **Step 1: Run existing Playwright smoke tests**
+- [x] **Step 1: Run existing Playwright smoke tests**
 
 ```bash
 pnpm smoke:auth:ui
@@ -3283,7 +3283,7 @@ pnpm smoke:restore:ui
 ```
 Any failure due to changed text (e.g. the logout button moved into a menu) → update the test's selectors to use `getByRole('menuitem', { name: '退出登录' })` etc.
 
-- [ ] **Step 2: A11y sweep via Playwright MCP**
+- [x] **Step 2: A11y sweep via Playwright MCP**
 
 Dev server + navigate `/` and `/login`. Use `browser_snapshot` to inspect:
 - Every icon-only button has either `aria-label` or is wrapped in a `<Tooltip>`
@@ -3292,7 +3292,7 @@ Dev server + navigate `/` and `/login`. Use `browser_snapshot` to inspect:
 
 Fix issues inline where found.
 
-- [ ] **Step 3: Reduced-motion check**
+- [x] **Step 3: Reduced-motion check**
 
 ```ts
 browser_evaluate(() => {
@@ -3302,7 +3302,7 @@ browser_evaluate(() => {
 ```
 Reload. Layout must remain correct with no jumps; all motion-v components degrade to static state.
 
-- [ ] **Step 4: Responsive sweep**
+- [x] **Step 4: Responsive sweep**
 
 ```ts
 browser_resize(980, 900); // tablet
@@ -3319,7 +3319,7 @@ Confirm:
 
 Apply targeted `@media` tweaks to offending components if needed.
 
-- [ ] **Step 5: Final build + smoke**
+- [x] **Step 5: Final build + smoke**
 
 ```bash
 pnpm build:web
