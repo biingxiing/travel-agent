@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { Sparkles, GitBranch, Download, Eye, EyeOff } from 'lucide-vue-next'
+import Tooltip from '~/components/ui/Tooltip.vue'
+
 const props = defineProps<{
   username: string
   password: string
@@ -81,8 +84,28 @@ const contextLabel = computed(() => {
           <strong>{{ redirectLabel }}</strong>
         </div>
 
-        <ul class="auth-helper-list">
-          <li v-for="item in helperItems" :key="item">{{ item }}</li>
+        <ul class="auth-value-props">
+          <li>
+            <div class="auth-vp-icon"><Sparkles :size="18" :stroke-width="1.5" /></div>
+            <div>
+              <strong>AI 生成 3 套方案</strong>
+              <small>不再反复 try & error</small>
+            </div>
+          </li>
+          <li>
+            <div class="auth-vp-icon"><GitBranch :size="18" :stroke-width="1.5" /></div>
+            <div>
+              <strong>可继续追问与迭代</strong>
+              <small>每次修改都保留版本</small>
+            </div>
+          </li>
+          <li>
+            <div class="auth-vp-icon"><Download :size="18" :stroke-width="1.5" /></div>
+            <div>
+              <strong>随时继续上次的规划</strong>
+              <small>不会丢</small>
+            </div>
+          </li>
         </ul>
       </div>
 
@@ -129,14 +152,17 @@ const contextLabel = computed(() => {
                 @input="emit('updatePassword', ($event.target as HTMLInputElement).value)"
               />
 
-              <button
-                type="button"
-                class="auth-inline-button"
-                :disabled="status !== 'idle'"
-                @click="showPassword = !showPassword"
-              >
-                {{ showPassword ? "隐藏" : "显示" }}
-              </button>
+              <Tooltip :label="showPassword ? '隐藏密码' : '显示密码'">
+                <button
+                  type="button"
+                  class="auth-inline-icon-button"
+                  :disabled="status !== 'idle'"
+                  :aria-label="showPassword ? '隐藏密码' : '显示密码'"
+                  @click="showPassword = !showPassword"
+                >
+                  <component :is="showPassword ? EyeOff : Eye" :size="16" :stroke-width="1.5" />
+                </button>
+              </Tooltip>
             </div>
           </label>
 
@@ -173,4 +199,59 @@ code {
   border: 1px solid var(--border);
   border-radius: 4px;
 }
+
+.auth-value-props {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 14px;
+}
+.auth-value-props li {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  align-items: start;
+}
+.auth-vp-icon {
+  width: 36px; height: 36px;
+  border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--brand-blue-soft);
+  color: var(--brand-blue-deep);
+}
+.auth-value-props strong {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: 600;
+  font-size: var(--type-body-size);
+  color: var(--text);
+}
+.auth-value-props small {
+  display: block;
+  margin-top: 2px;
+  color: var(--text-muted);
+  font-size: var(--type-body-sm-size);
+  line-height: 1.5;
+}
+
+.auth-inline-icon-button {
+  position: absolute;
+  top: 50%; right: 8px;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center; justify-content: center;
+  width: 32px; height: 32px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-xs);
+  background: var(--bg-elevated);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
+}
+.auth-inline-icon-button:hover:not(:disabled) {
+  border-color: var(--brand-blue);
+  color: var(--brand-blue);
+}
+.auth-inline-icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
 </style>

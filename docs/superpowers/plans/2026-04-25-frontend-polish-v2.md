@@ -1977,7 +1977,7 @@ git commit -m "feat(web/topbar): breadcrumb + DropdownMenu user menu; Toast repl
 **Files:**
 - Modify: `apps/web/components/AuthLoginCard.vue`
 
-- [ ] **Step 1: Add Lucide + Tooltip imports**
+- [x] **Step 1: Add Lucide + Tooltip imports**
 
 Top of `<script setup>`:
 ```ts
@@ -1985,7 +1985,7 @@ import { Sparkles, GitBranch, Download, Eye, EyeOff } from 'lucide-vue-next'
 import Tooltip from '~/components/ui/Tooltip.vue'
 ```
 
-- [ ] **Step 2: Replace the hero-pane bullet list**
+- [x] **Step 2: Replace the hero-pane bullet list**
 
 Find `<ul class="auth-helper-list">...</ul>`. Replace entirely with:
 
@@ -2015,7 +2015,7 @@ Find `<ul class="auth-helper-list">...</ul>`. Replace entirely with:
 </ul>
 ```
 
-- [ ] **Step 3: Replace the password inline button**
+- [x] **Step 3: Replace the password inline button**
 
 Find `<button class="auth-inline-button">...</button>` inside `.auth-password-wrap`. Replace with:
 
@@ -2035,7 +2035,7 @@ Find `<button class="auth-inline-button">...</button>` inside `.auth-password-wr
 
 (Assumes `showPassword` ref exists. If not, add `const showPassword = ref(false)` and bind the input `:type="showPassword ? 'text' : 'password'"`.)
 
-- [ ] **Step 4: Add new styles at the end of the scoped `<style>`**
+- [x] **Step 4: Add new styles at the end of the scoped `<style>`**
 
 ```css
 .auth-value-props {
@@ -2094,7 +2094,7 @@ Find `<button class="auth-inline-button">...</button>` inside `.auth-password-wr
 .auth-inline-icon-button:disabled { opacity: 0.5; cursor: not-allowed; }
 ```
 
-- [ ] **Step 5: Verify build + visual**
+- [x] **Step 5: Verify build + visual**
 
 ```bash
 pnpm build:web
@@ -2102,7 +2102,7 @@ pnpm build:web
 
 Dev + Playwright: `/login` shows 3 value-prop rows with purple icon tiles; Eye/EyeOff tooltip works on password field.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
 git add apps/web/components/AuthLoginCard.vue
