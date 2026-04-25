@@ -83,6 +83,7 @@ export const ChatStreamEventSchema = z.discriminatedUnion('type', [
     type: z.literal('clarify_needed'),
     question: z.string(),
     reason: BlockerTypeEnum,
+    defaultSuggestion: z.string().optional(),
   }),
   z.object({
     type: z.literal('max_iter_reached'),
