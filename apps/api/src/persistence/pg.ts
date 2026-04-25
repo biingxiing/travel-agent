@@ -126,3 +126,44 @@ export async function deleteSession(id: string, userId: string): Promise<boolean
   return (r.rowCount ?? 0) > 0
 }
 
+export interface LLMCallRow {
+  id: string
+  sessionId: string | null
+  runId: string | null
+  agent: string
+  model: string
+  stream: boolean
+  request: unknown
+  response: unknown
+  promptTokens: number | null
+  completionTokens: number | null
+  totalTokens: number | null
+  latencyMs: number
+  ok: boolean
+  errorMessage: string | null
+  errorCode: string | null
+}
+
+export async function insertLLMCall(row: LLMCallRow): Promise<void> {
+  if (!isDatabaseEnabled()) return
+  await getPool().query(
+    `INSERT INTO llm_calls (
+       id, session_id, run_id, agent, model, stream,
+       request, response,
+       prompt_tokens, completion_tokens, total_tokens,
+       latency_ms, ok, error_message, error_code
+     ) VALUES (
+       $1, $2, $3, $4, $5, $6,
+       $7::jsonb, $8::jsonb,
+       $9, $10, $11,
+       $12, $13, $14, $15
+     )`,
+    [
+      row.id, row.sessionId, row.runId, row.agent, row.model, row.stream,
+      JSON.stringify(row.request), row.response === null ? null : JSON.stringify(row.response),
+      row.promptTokens, row.completionTokens, row.totalTokens,
+      row.latencyMs, row.ok, row.errorMessage, row.errorCode,
+    ],
+  )
+}
+
