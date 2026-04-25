@@ -1,19 +1,21 @@
 import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../llm/client.js', () => ({
-  llm: {
-    chat: { completions: { create: vi.fn() } },
-  },
+  llm: { chat: { completions: { create: vi.fn() } } },
   FAST_MODEL: 'fake-fast',
   PLANNER_MODEL: 'fake-plan',
 }))
 
-import { llm } from '../llm/client.js'
+vi.mock('../llm/logger.js', () => ({
+  loggedCompletion: vi.fn(),
+}))
+
+import { loggedCompletion } from '../llm/logger.js'
 import { extractBrief } from './extractor.js'
 
 describe('extractor', () => {
   it('parses destination and days from message', async () => {
-    ;(llm.chat.completions.create as any).mockResolvedValue({
+    ;(loggedCompletion as any).mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({
         brief: { destination: '北京', days: 3, travelers: 2 },
         intent: 'new', changedFields: ['destination','days','travelers'],
@@ -29,7 +31,7 @@ describe('extractor', () => {
   })
 
   it('merges with existing brief', async () => {
-    ;(llm.chat.completions.create as any).mockResolvedValue({
+    ;(loggedCompletion as any).mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({
         brief: { destination: '北京', days: 3, originCity: '上海' },
         intent: 'clarify-answer', changedFields: ['originCity'],

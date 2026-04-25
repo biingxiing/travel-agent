@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { llm, FAST_MODEL } from '../llm/client.js'
+import { FAST_MODEL } from '../llm/client.js'
+import { loggedCompletion } from '../llm/logger.js'
 import { TripBriefSchema, type TripBrief } from '@travel-agent/shared'
 import type { Message } from '@travel-agent/shared'
 import type OpenAI from 'openai'
@@ -84,7 +85,7 @@ export async function extractBrief(
 
   let parsed: ExtractorOutput = { brief: {}, intent: 'new', changedFields: [] }
   try {
-    const resp = await llm.chat.completions.create({
+    const resp = await loggedCompletion('extractor', {
       model: FAST_MODEL,
       messages: llmMessages,
       temperature: 0,

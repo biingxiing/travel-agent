@@ -1,5 +1,11 @@
 import { describe, it, expect, vi } from 'vitest'
 
+vi.mock('../llm/client.js', () => ({
+  llm: { chat: { completions: { create: vi.fn() } } },
+  FAST_MODEL: 'fake-fast',
+  PLANNER_MODEL: 'fake-plan',
+}))
+
 vi.mock('../auth/middleware.js', () => ({
   authMiddleware: async (c: any, next: any) => { c.set('userId', 'u-test'); await next() },
 }))

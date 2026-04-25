@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto'
-import { llm, PLANNER_MODEL } from '../llm/client.js'
+import { PLANNER_MODEL } from '../llm/client.js'
+import { loggedCompletion, loggedStream } from '../llm/logger.js'
 import { skillRegistry } from '../registry/skill-registry.js'
 import { PlanSchema, type Plan, type Message, type ChatStreamEvent, type EvaluationReport, type TripBrief } from '@travel-agent/shared'
 import type OpenAI from 'openai'
@@ -153,9 +154,9 @@ async function runWithToolLoop(
 ): Promise<{ content: string; messages: OpenAI.Chat.ChatCompletionMessageParam[] }> {
   let current = [...messages]
   for (let i = 0; i < MAX_SKILL_ROUNDS; i++) {
-    const resp = await llm.chat.completions.create({
+    const resp = await loggedCompletion('generator', {
       model: PLANNER_MODEL, messages: current, tools, tool_choice: 'auto',
-      temperature: 0.3, stream: false,
+      temperature: 0.3,
     })
     const msg = resp.choices[0]?.message
     if (!msg) return { content: '', messages: current }
@@ -198,17 +199,15 @@ export async function* runInitial(
   const prepared = await runWithToolLoop(llmMessages, tools)
 
   // Phase B: stream final NL + JSON
-  const stream = await llm.chat.completions.create({
-    model: PLANNER_MODEL,
-    messages: [...prepared.messages, { role: 'system', content: '现在请基于上述 tool 结果生成最终行程，输出 NL + ```json 代码块。' }],
-    tools, tool_choice: 'none',
-    stream: true, stream_options: { include_usage: true }, temperature: 0.7,
-  })
-
   let full = ''
   let nlBuf = ''
   let inJson = false
-  for await (const chunk of stream) {
+  for await (const chunk of loggedStream('generator', {
+    model: PLANNER_MODEL,
+    messages: [...prepared.messages, { role: 'system', content: '现在请基于上述 tool 结果生成最终行程，输出 NL + ```json 代码块。' }],
+    tools, tool_choice: 'none',
+    temperature: 0.7,
+  })) {
     const delta = chunk.choices[0]?.delta?.content ?? ''
     if (!delta) continue
     full += delta

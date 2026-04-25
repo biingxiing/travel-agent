@@ -3,6 +3,7 @@ import { streamSSE } from 'hono/streaming'
 import { zValidator } from '@hono/zod-validator'
 import { z } from 'zod'
 import { authMiddleware } from '../auth/middleware.js'
+import { withSessionContext } from '../llm/logger.js'
 import { sessionStore } from '../session/store.js'
 import { runReactLoop } from '../agents/react-loop.js'
 import type { ChatStreamEvent } from '@travel-agent/shared'
@@ -65,10 +66,12 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
     let assistantContent = ''
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
-      for await (const ev of runReactLoop(fresh, runId)) {
-        await send(ev)
-        if (ev.type === 'token') assistantContent += ev.delta
-      }
+      await withSessionContext(fresh.id, runId, async () => {
+        for await (const ev of runReactLoop(fresh, runId)) {
+          await send(ev)
+          if (ev.type === 'token') assistantContent += ev.delta
+        }
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown'
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })
@@ -107,7 +110,9 @@ sessionsRouter.post('/:id/continue', async (c) => {
     }
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
-      for await (const ev of runReactLoop(fresh, runId)) await send(ev)
+      await withSessionContext(fresh.id, runId, async () => {
+        for await (const ev of runReactLoop(fresh, runId)) await send(ev)
+      })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown'
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })

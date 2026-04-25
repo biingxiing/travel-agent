@@ -2,10 +2,15 @@ import { describe, it, expect, vi } from 'vitest'
 
 vi.mock('../llm/client.js', () => ({
   llm: { chat: { completions: { create: vi.fn() } } },
-  FAST_MODEL: 'fake-fast', PLANNER_MODEL: 'fake-plan',
+  FAST_MODEL: 'fake-fast',
+  PLANNER_MODEL: 'fake-plan',
 }))
 
-import { llm } from '../llm/client.js'
+vi.mock('../llm/logger.js', () => ({
+  loggedCompletion: vi.fn(),
+}))
+
+import { loggedCompletion } from '../llm/logger.js'
 import { criticReview } from './critic.js'
 import type { Plan } from '@travel-agent/shared'
 
@@ -19,7 +24,7 @@ const samplePlan: Plan = {
 
 describe('critic', () => {
   it('parses critic JSON', async () => {
-    ;(llm.chat.completions.create as any).mockResolvedValue({
+    ;(loggedCompletion as any).mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({
         qualityScore: 60,
         blockers: [{ type: 'missing_origin', message: '请告诉我出发城市' }],
@@ -35,7 +40,7 @@ describe('critic', () => {
   })
 
   it('gracefully degrades on bad JSON', async () => {
-    ;(llm.chat.completions.create as any).mockResolvedValue({
+    ;(loggedCompletion as any).mockResolvedValue({
       choices: [{ message: { content: 'not json' } }],
     })
     const r = await criticReview(samplePlan, { destination: '北京', days: 3, travelers: 1, preferences: [] })
