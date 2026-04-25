@@ -21,6 +21,7 @@ plugins/*
 codex-write-test.txt
 /redesign-*.png
 *.local.png
+/*.png
 
 # Logs
 *.log
