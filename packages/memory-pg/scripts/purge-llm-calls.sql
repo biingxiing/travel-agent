@@ -1,0 +1,3 @@
+-- Manual cleanup: delete rows older than 30 days.
+-- Edit the INTERVAL before running.
+-- DELETE FROM llm_calls WHERE created_at < NOW() - INTERVAL '30 days';
