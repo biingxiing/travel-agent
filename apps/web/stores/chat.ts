@@ -1,6 +1,6 @@
 import { defineStore } from "pinia"
-import type { ChatStreamEvent, ItineraryScoreSummary } from "@travel-agent/shared"
-import type { ChatMessage, ItemOption, ItemSelection, Plan } from "~/types/itinerary"
+import type { ChatStreamEvent, ItineraryScoreSummary, Message, Plan, ItemOption, ItemSelection } from "@travel-agent/shared"
+import type { ChatMessage, Role } from "~/types/itinerary"
 import { useWorkspaceStore } from "./workspace"
 
 const welcomeMessage: ChatMessage = {
@@ -168,6 +168,26 @@ export const useChatStore = defineStore("chat", {
       this.sessionId = sessionId
       this.persistState()
     },
+    hydrateFromSessionMessages(messages: Message[]) {
+      const history: ChatMessage[] = messages
+        .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0)
+        .map((m) => ({
+          id: `${m.role}-${m.timestamp}`,
+          role: m.role as Role,
+          content: m.content,
+        }))
+      this.phase = history.length > 0 ? 'result' : 'idle'
+      this.agentStatus = history.length > 0 ? '上次行程已加载' : '准备开始'
+      this.streamSteps = []
+      this.errorMessage = ''
+      this.plan = null
+      this.pendingSelections = []
+      this.currentMessageId = ''
+      this.pendingAssistantText = ''
+      this.draft = ''
+      this.messages = history.length > 0 ? [welcomeMessage, ...history] : [welcomeMessage]
+      this.persistState()
+    },
     setDraft(value: string) {
       this.draft = value
       this.persistState()
@@ -230,7 +250,7 @@ export const useChatStore = defineStore("chat", {
           break
         case 'plan_partial':
           if (event.plan) {
-            ws.currentPlan = event.plan as Plan
+            ws.currentPlan = event.plan
           }
           break
         case 'followup':
@@ -353,7 +373,6 @@ export const useChatStore = defineStore("chat", {
 
       if (option.patch.description) {
         item.description = option.patch.description
-        item.desc = option.patch.description
       }
       if (option.patch.time) {
         item.time = option.patch.time

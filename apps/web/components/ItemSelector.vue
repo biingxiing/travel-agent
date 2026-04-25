@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { ItemSelection } from "~/types/itinerary"
+import type { ItemSelection } from "@travel-agent/shared"
 import { useChatStore } from "~/stores/chat"
 
 const props = defineProps<{
