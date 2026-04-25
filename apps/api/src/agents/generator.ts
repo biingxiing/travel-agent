@@ -248,8 +248,12 @@ export async function* runInitial(
 }
 
 export async function runRefine(
-  current: Plan, report: EvaluationReport, brief: TripBrief,
+  current: Plan, report: EvaluationReport, brief: TripBrief, messages: Message[] = [],
 ): Promise<Plan> {
+  const historyMessages = messages
+    .filter((m) => m.role === 'user' || m.role === 'assistant')
+    .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }))
+
   const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: SYSTEM_PROMPT_REFINE },
     { role: 'user', content: [
@@ -261,6 +265,7 @@ export async function runRefine(
         globalIssues: report.globalIssues,
       })}`,
     ].join('\n') },
+    ...historyMessages,
   ]
   const tools = buildSkillTools()
   const prepared = await runWithToolLoop(llmMessages, tools)

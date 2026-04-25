@@ -150,7 +150,7 @@ export async function* runReactLoop(
       status: 'refining',
     }
     yield { type: 'agent_step', agent: 'generator', status: 'refining' }
-    const refined = await runRefine(session.currentPlan!, report, ext.brief)
+    const refined = await runRefine(session.currentPlan!, report, ext.brief, session.messages)
     if (isCancelled(session, runId)) return
     session.currentPlan = refined
     yield { type: 'plan', plan: refined }
