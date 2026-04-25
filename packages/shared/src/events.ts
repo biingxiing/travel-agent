@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PlanSchema } from './plan.js'
+import { PlanSchema, rawPlanShape } from './plan.js'
 import { BlockerTypeEnum } from './evaluation.js'
 
 export const FollowupFieldEnum = z.enum([
@@ -58,7 +58,7 @@ export const ChatStreamEventSchema = z.discriminatedUnion('type', [
     output: z.any().optional(),
   }),
   z.object({ type: z.literal('token'), delta: z.string() }),
-  z.object({ type: z.literal('plan_partial'), plan: PlanSchema.deepPartial() }),
+  z.object({ type: z.literal('plan_partial'), plan: rawPlanShape.deepPartial() }),
   z.object({ type: z.literal('plan'), plan: PlanSchema }),
   FollowupEventSchema,
   ItemOptionsEventSchema,

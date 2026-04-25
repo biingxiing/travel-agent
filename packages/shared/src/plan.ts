@@ -33,9 +33,9 @@ export const EstimatedBudgetSchema = z.object({
   })).optional(),
 })
 
-export const PlanSchema = z.object({
+export const rawPlanShape = z.object({
   title: z.string(),
-  destination: z.string(),
+  destinations: z.array(z.string()).default([]),
   originCity: z.string().optional(),
   startDate: z.string().optional(),
   endDate: z.string().optional(),
@@ -49,7 +49,18 @@ export const PlanSchema = z.object({
   disclaimer: z.string().default('本行程由 AI 生成，仅供参考。出行前请通过官方渠道核对最新信息。'),
 })
 
+export const PlanSchema = z.preprocess((raw) => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>
+    if (typeof r.destination === 'string' && !Array.isArray(r.destinations)) {
+      r.destinations = [r.destination]
+      delete r.destination
+    }
+  }
+  return raw
+}, rawPlanShape)
+
 export type PlanItem = z.infer<typeof PlanItemSchema>
 export type DailyPlan = z.infer<typeof DailyPlanSchema>
 export type EstimatedBudget = z.infer<typeof EstimatedBudgetSchema>
-export type Plan = z.infer<typeof PlanSchema>
+export type Plan = z.infer<typeof rawPlanShape>

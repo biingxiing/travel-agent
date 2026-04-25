@@ -3,7 +3,7 @@ import { ChatStreamEventSchema, FollowupEventSchema, ItemOptionsEventSchema } fr
 import type { ChatStreamEvent } from './events.js'
 
 const minimalPlan = {
-  title: 't', destination: 'd', days: 1, travelers: 1, pace: 'balanced',
+  title: 't', destinations: ['d'], days: 1, travelers: 1, pace: 'balanced' as const,
   preferences: [], dailyPlans: [{ day: 1, items: [] }], tips: [],
   disclaimer: 'x',
 }
@@ -41,7 +41,7 @@ describe('ChatStreamEventSchema · variant coverage', () => {
 
   it('parses plan_partial with deepPartial plan payload', () => {
     const e = ChatStreamEventSchema.parse({
-      type: 'plan_partial', plan: { destination: 'sh', dailyPlans: [{ day: 1 }] },
+      type: 'plan_partial', plan: { destinations: ['sh'], dailyPlans: [{ day: 1 }] },
     })
     expect(e.type).toBe('plan_partial')
   })
@@ -167,7 +167,7 @@ describe('ChatStreamEventSchema · round-trip JSON safety', () => {
       { type: 'session', sessionId: 's', messageId: 'm' },
       { type: 'agent_step', agent: 'critic', status: 'evaluating' },
       { type: 'token', delta: 'x' },
-      { type: 'plan_partial', plan: { destination: 'sh' } },
+      { type: 'plan_partial', plan: { destinations: ['sh'] } },
       { type: 'plan', plan: minimalPlan },
       {
         type: 'followup', field: 'days', question: '几天？',

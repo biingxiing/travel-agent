@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { PlanSchema, PlanItemSchema, DailyPlanSchema, EstimatedBudgetSchema } from './plan.js'
+import { PlanSchema, PlanItemSchema, DailyPlanSchema, EstimatedBudgetSchema, rawPlanShape } from './plan.js'
 
 const realisticPlan = {
   title: '上海亲子三日游',
-  destination: '上海',
+  destinations: ['上海'],
   originCity: '北京',
   startDate: '2026-05-01',
   endDate: '2026-05-03',
@@ -142,9 +142,15 @@ describe('PlanSchema', () => {
     expect(reparsed.dailyPlans[0]?.items).toHaveLength(3)
   })
 
+  it('migrates legacy destination string to destinations array', () => {
+    const plan = PlanSchema.parse({ title: 't', destination: 'd', days: 1, dailyPlans: [{ day: 1, items: [] }] })
+    expect(plan.destinations).toEqual(['d'])
+    expect((plan as any).destination).toBeUndefined()
+  })
+
   it('applies defaults for travelers / pace / preferences / tips / disclaimer', () => {
     const plan = PlanSchema.parse({
-      title: 't', destination: 'd', days: 1,
+      title: 't', destinations: ['d'], days: 1,
       dailyPlans: [{ day: 1, items: [] }],
     })
     expect(plan.travelers).toBe(1)
@@ -156,20 +162,19 @@ describe('PlanSchema', () => {
 
   it('rejects invalid pace enum', () => {
     expect(() => PlanSchema.parse({
-      title: 't', destination: 'd', days: 1, pace: 'sprint',
+      title: 't', destinations: ['d'], days: 1, pace: 'sprint',
       dailyPlans: [{ day: 1, items: [] }],
     })).toThrow()
   })
 
-  it('requires destination, title, days', () => {
-    expect(() => PlanSchema.parse({ destination: 'd', days: 1, dailyPlans: [] })).toThrow()
-    expect(() => PlanSchema.parse({ title: 't', days: 1, dailyPlans: [] })).toThrow()
-    expect(() => PlanSchema.parse({ title: 't', destination: 'd', dailyPlans: [] })).toThrow()
+  it('requires title and days', () => {
+    expect(() => PlanSchema.parse({ destinations: ['d'], days: 1, dailyPlans: [] })).toThrow()
+    expect(() => PlanSchema.parse({ title: 't', destinations: ['d'], dailyPlans: [] })).toThrow()
   })
 
   it('keeps optional originCity / startDate / endDate when provided', () => {
     const plan = PlanSchema.parse({
-      title: 't', destination: 'sh', days: 2, originCity: 'bj',
+      title: 't', destinations: ['sh'], days: 2, originCity: 'bj',
       startDate: '2026-05-01', endDate: '2026-05-02',
       dailyPlans: [{ day: 1, items: [] }, { day: 2, items: [] }],
     })
@@ -179,8 +184,8 @@ describe('PlanSchema', () => {
   })
 
   it('deepPartial parses heavily empty payloads (used by plan_partial event)', () => {
-    const partial = PlanSchema.deepPartial().parse({ destination: 'sh' })
-    expect(partial.destination).toBe('sh')
+    const partial = rawPlanShape.deepPartial().parse({ destinations: ['sh'] })
+    expect(partial.destinations).toEqual(['sh'])
     expect(partial.dailyPlans).toBeUndefined()
   })
 })
