@@ -262,6 +262,10 @@ async function refreshAuthState() {
   }
 }
 
+function onUseDefault(suggestion: string) {
+  submitPrompt(suggestion)
+}
+
 async function submitPrompt(value: string) {
   const content = value.trim()
 
@@ -290,7 +294,7 @@ async function submitPrompt(value: string) {
         chatStore.completePlannerResponse(
           currentPlan.value
             ? "已为你生成最新方案，右侧可以查看完整行程。"
-            : "已收到你的需求，请继续补充信息。"
+            : chatStore.awaitingClarify?.question ?? ""
         )
       },
       onError: (err) => {
@@ -482,6 +486,8 @@ onBeforeUnmount(() => {
         v-else-if="awaitingClarify"
         :question="awaitingClarify.question"
         :reason="awaitingClarify.reason"
+        :default-suggestion="awaitingClarify.defaultSuggestion"
+        @use-default="onUseDefault"
       />
       <MaxIterCard
         v-else-if="canContinue && maxIterReached"

@@ -9,6 +9,12 @@ vi.mock('./generator.js', () => ({
 vi.mock('./prefetch.js', () => ({
   prefetchFlyaiContext: vi.fn(async () => []),
 }))
+vi.mock('./clarifier.js', () => ({
+  generateClarification: vi.fn(async (_msgs: any, _brief: any, reason: string) => ({
+    question: `clarify: ${reason}`,
+    defaultSuggestion: reason === 'missing_dates' ? '按 2025-01-01 出发规划' : null,
+  })),
+}))
 vi.mock('../config/eval.js', () => ({
   getEvalConfig: () => ({
     ruleWeight: 0.7, llmWeight: 0.3, threshold: 90, maxIter: 3,
@@ -73,7 +79,7 @@ describe('runReactLoop', () => {
 
   it('runs initial generation then converges immediately', async () => {
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [] },
+      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [], travelDates: { start: '2025-01-01', end: '2025-01-02' } },
       intent: 'new', changedFields: [],
     })
     ;(runInitial as any).mockImplementation(async function* () {
@@ -92,7 +98,7 @@ describe('runReactLoop', () => {
 
   it('hits max iter, emits max_iter_reached', async () => {
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [] },
+      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [], travelDates: { start: '2025-01-01', end: '2025-01-02' } },
       intent: 'new', changedFields: [],
     })
     ;(runInitial as any).mockImplementation(async function* () { yield { type: 'plan', plan: samplePlan }; return samplePlan })
@@ -108,7 +114,7 @@ describe('runReactLoop', () => {
   it('aborts when runId mismatches', async () => {
     const session = baseSession()
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [] },
+      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [], travelDates: { start: '2025-01-01', end: '2025-01-02' } },
       intent: 'new', changedFields: [],
     })
     ;(runInitial as any).mockImplementation(async function* () { yield { type: 'plan', plan: samplePlan }; return samplePlan })
