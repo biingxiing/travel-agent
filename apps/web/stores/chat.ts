@@ -207,6 +207,35 @@ export const useChatStore = defineStore("chat", {
         case 'session':
           ws.sessionId = event.sessionId
           break
+        case 'agent_step': {
+          const labels: Record<string, string> = {
+            extractor: '正在理解你的需求…',
+            prefetch: '正在查询可选方案…',
+            generator: '正在生成行程方案…',
+            evaluator: '正在评估行程质量…',
+            critic: '正在分析改进点…',
+          }
+          if (event.status === 'refining') {
+            this.agentStatus = '正在优化行程…'
+          } else if (event.status === 'evaluating') {
+            this.agentStatus = '正在评估行程质量…'
+          } else if (event.status === 'start' || event.status === 'thinking') {
+            this.agentStatus = labels[event.agent] ?? '正在处理…'
+          }
+          break
+        }
+        case 'token':
+          this.pendingAssistantText += event.delta
+          this.setAssistantContent(this.pendingAssistantText)
+          break
+        case 'plan_partial':
+          if (event.plan) {
+            ws.currentPlan = event.plan as Plan
+          }
+          break
+        case 'followup':
+          this.agentStatus = event.question
+          break
         case 'iteration_progress':
           this.iteration = event.iteration
           this.maxIterations = event.maxIterations
@@ -228,6 +257,7 @@ export const useChatStore = defineStore("chat", {
         }
         case 'plan':
           ws.currentPlan = event.plan
+          this.plan = event.plan
           this.awaitingClarify = null
           this.maxIterReached = null
           this.persistState()

@@ -52,9 +52,8 @@ const {
 const { errorMessage: authErrorMessage, status: authStatus, username } = storeToRefs(authStore)
 const { sessionId: workspaceSessionId, currentPlan } = storeToRefs(workspaceStore)
 const logoutPending = ref(false)
-const pageShellRef = ref<HTMLElement | null>(null)
 const mainSplitRef = ref<HTMLElement | null>(null)
-const leftPanelWidth = ref(54)
+const leftPanelWidth = ref(42)
 const isResizingSplit = ref(false)
 let stopActiveResize: (() => void) | null = null
 const hasConversation = computed(() => messages.value.length > 1)
@@ -408,7 +407,6 @@ onBeforeUnmount(() => {
 
   <main
     v-else
-    ref="pageShellRef"
     class="page-shell"
     :class="{ 'is-landing': isLanding, 'is-conversation': !isLanding }"
   >
