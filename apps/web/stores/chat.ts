@@ -125,7 +125,7 @@ export const useChatStore = defineStore("chat", {
     displayScore: null as number | null,
     targetScore: 90,
     loopStatus: null as 'evaluating' | 'refining' | null,
-    awaitingClarify: null as { question: string; reason: string } | null,
+    awaitingClarify: null as { question: string; reason: string; defaultSuggestion?: string } | null,
     maxIterReached: null as { currentScore: number } | null,
     canContinue: false
   }),
@@ -267,7 +267,11 @@ export const useChatStore = defineStore("chat", {
           this.persistState()
           break
         case 'clarify_needed':
-          this.awaitingClarify = { question: event.question, reason: event.reason }
+          this.awaitingClarify = {
+            question: event.question,
+            reason: event.reason,
+            defaultSuggestion: event.defaultSuggestion,
+          }
           this.canContinue = false
           ws.status = 'awaiting_user'
           break
