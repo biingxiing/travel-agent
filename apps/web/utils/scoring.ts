@@ -6,10 +6,7 @@ export type {
   Grade, ScoreCheck, ItemScore, CategoryScore, CoverageScore, ItineraryScore,
 } from '@travel-agent/shared'
 
-import type { Grade, ItemScore, ItineraryScore } from '@travel-agent/shared'
-import type { Plan as SharedPlan } from '@travel-agent/shared'
-import { scorePlan as sharedScorePlan } from '@travel-agent/shared'
-import type { Plan } from '~/types/itinerary'
+import type { Grade, ItemScore, ItineraryScore, Plan } from '@travel-agent/shared'
 
 export function gradeColor(g: Grade): string {
   const map: Record<Grade, string> = {
@@ -26,18 +23,10 @@ export function gradeLabel(g: Grade): string {
   return map[g]
 }
 
-// Bridge for the web-side Plan type (which has legacy `desc` field) vs shared Plan
-export function scorePlanCompat(plan: Plan): ItineraryScore {
-  return sharedScorePlan(plan as unknown as SharedPlan)
-}
-
-// ─── Item score map for per-item UI badges ─────────────────────────────────
-
 // Returns a map keyed by "${day.day}-${itemIndex}" → ItemScore
 export function buildItemScoreMap(plan: Plan, score: ItineraryScore): Map<string, ItemScore> {
   const map = new Map<string, ItemScore>()
 
-  // Build lookup by type::title (may collide for same-named items; last writer wins)
   const byKey = new Map<string, ItemScore>()
   for (const scored of [
     ...score.transport.items,

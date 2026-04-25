@@ -90,12 +90,12 @@ const activeAttractionItems = computed<PlanItem[]>(() => {
 })
 
 const itineraryScore = computed<ItineraryScore | null>(() =>
-  currentPlan.value ? scorePlan(currentPlan.value as unknown as Plan) : null,
+  currentPlan.value ? scorePlan(currentPlan.value) : null,
 )
 
 const itemScoreMap = computed<Map<string, ItemScore>>(() => {
   if (!currentPlan.value || !itineraryScore.value) return new Map()
-  return buildItemScoreMap(currentPlan.value as never, itineraryScore.value)
+  return buildItemScoreMap(currentPlan.value, itineraryScore.value)
 })
 
 const statDays = computed(() => currentPlan.value?.days ?? 0)
