@@ -1,6 +1,6 @@
 import { defineStore } from "pinia"
 import type { ChatStreamEvent, ItineraryScoreSummary } from "@travel-agent/shared"
-import type { ChatMessage, ItemOption, ItemSelection, Plan, StreamEvent } from "~/types/itinerary"
+import type { ChatMessage, ItemOption, ItemSelection, Plan } from "~/types/itinerary"
 import { useWorkspaceStore } from "./workspace"
 
 const welcomeMessage: ChatMessage = {
@@ -14,25 +14,6 @@ const planningMessages = {
   start: "正在为你生成旅行方案…",
   done: "正在整理最终方案…"
 } as const
-
-function looksLikeStructuredOutput(content: string) {
-  const normalized = content.trim()
-
-  return normalized.startsWith("```json") || normalized.startsWith("{") || normalized.startsWith("[")
-}
-
-function buildPlanSummary(plan: Plan) {
-  const budget = plan.estimatedBudget
-    ? `，预估 ${plan.estimatedBudget.currency} ${plan.estimatedBudget.amount}`
-    : ""
-
-  const preferenceText =
-    plan.preferences && plan.preferences.length > 0
-      ? `，重点偏向 ${plan.preferences.join(" / ")}`
-      : ""
-
-  return `已为你生成 ${plan.days} 天 ${plan.travelers} 人的 ${plan.destination} 行程${budget}${preferenceText}。右侧可以直接查看每天安排，如果想调整告诉我就行。`
-}
 
 const CHAT_SESSION_STORAGE_KEY = "travel-agent-chat-state"
 
@@ -220,14 +201,6 @@ export const useChatStore = defineStore("chat", {
         this.persistState()
       }
     },
-    appendAssistantToken(delta: string) {
-      this.pendingAssistantText += delta
-    },
-    appendStreamStep(step: string) {
-      if (!this.streamSteps.includes(step)) {
-        this.streamSteps.push(step)
-      }
-    },
     handleStreamEvent(event: ChatStreamEvent) {
       const ws = useWorkspaceStore()
       switch (event.type) {
@@ -257,6 +230,11 @@ export const useChatStore = defineStore("chat", {
           ws.currentPlan = event.plan
           this.awaitingClarify = null
           this.maxIterReached = null
+          this.persistState()
+          break
+        case 'item_options':
+          this.pendingSelections = event.selections
+          this.persistState()
           break
         case 'clarify_needed':
           this.awaitingClarify = { question: event.question, reason: event.reason }
@@ -275,90 +253,14 @@ export const useChatStore = defineStore("chat", {
             ws.status = 'converged'
           }
           break
-      }
-    },
-    applyStreamEvent(event: StreamEvent) {
-      if (event.type === "session") {
-        this.sessionId = event.sessionId
-        this.persistState()
-        return
-      }
-
-      if (event.type === "agent_step") {
-        if (event.agent === "optimizer") {
-          if (event.status === "thinking") {
-            this.agentStatus = "正在查询可选方案…"
-            this.appendStreamStep("正在为交通和住宿生成可选方案")
-          }
-          if (event.status === "done") {
-            this.agentStatus = "方案已就绪，请确认选择"
-            this.appendStreamStep("可选方案已生成，请在右侧选择")
-          }
-        } else {
-          this.agentStatus = planningMessages[event.status]
-          if (event.status === "thinking") {
-            this.appendStreamStep("已理解需求，正在拆解规划任务")
-          }
-          if (event.status === "start") {
-            this.appendStreamStep("已开始生成行程和预算建议")
-          }
-          if (event.status === "done") {
-            this.appendStreamStep("已完成规划，正在整理最终方案")
-          }
-        }
-        return
-      }
-
-      if (event.type === "token") {
-        this.appendAssistantToken(event.delta)
-        return
-      }
-
-      if (event.type === "plan_partial" && event.plan.dailyPlans) {
-        this.appendStreamStep(`已生成 ${event.plan.dailyPlans.length} 天的部分行程`)
-        return
-      }
-
-      if (event.type === "plan") {
-        this.plan = event.plan
-        this.phase = "result"
-        this.pendingAssistantText = ""
-        this.pendingSelections = []
-        this.setAssistantContent(buildPlanSummary(event.plan))
-        this.appendStreamStep("行程卡片已生成，可继续追问修改")
-        this.persistState()
-        return
-      }
-
-      if (event.type === "item_options") {
-        this.pendingSelections = event.selections
-        this.persistState()
-        return
-      }
-
-      if (event.type === "done") {
-        this.agentStatus = this.pendingSelections.length > 0 ? "方案已就绪，请确认选择" : "规划完成"
-        if (!this.plan && this.pendingAssistantText.trim()) {
-          this.setAssistantContent(
-            looksLikeStructuredOutput(this.pendingAssistantText)
-              ? "行程已生成，请查看右侧卡片。"
-              : this.pendingAssistantText.trim()
-          )
-          this.pendingAssistantText = ""
-        }
-        if (this.phase !== "result") {
-          this.phase = "idle"
-        }
-        this.persistState()
-        return
-      }
-
-      if (event.type === "error") {
-        this.phase = "error"
-        this.errorMessage = event.message
-        this.agentStatus = "生成失败"
-        this.setAssistantContent(event.message)
-        this.persistState()
+        case 'error':
+          this.phase = 'error'
+          this.errorMessage = event.message
+          this.agentStatus = '生成失败'
+          this.loopStatus = null
+          this.setAssistantContent(event.message)
+          this.persistState()
+          break
       }
     },
     setInputError() {

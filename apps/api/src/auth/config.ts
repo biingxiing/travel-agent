@@ -24,7 +24,9 @@ export function getAuthConfig(): AuthConfig {
   const parsed = AuthEnvSchema.safeParse(process.env)
 
   if (!parsed.success) {
-    const details = parsed.error.issues.map((issue) => issue.message).join('; ')
+    const details = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || '<root>'}: ${issue.message}`)
+      .join('; ')
     throw new Error(`Invalid auth configuration: ${details}`)
   }
 

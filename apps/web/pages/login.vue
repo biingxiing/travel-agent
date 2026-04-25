@@ -120,11 +120,11 @@ const loginHelperItems = computed(() => {
   ]
 
   if (authErrorMessage.value.includes("用户名或密码错误")) {
-    items[0] = "请核对 apps/api/.env 中配置的 AUTH_USERNAME 和 AUTH_PASSWORD。"
+    items[0] = "请确认账号信息后重试；如忘记密码请联系管理员。"
   }
 
   if (authErrorMessage.value.includes("超时") || authErrorMessage.value.includes("无法连接")) {
-    items[2] = "当前更像是本地联调异常，请先确认 API 服务已经启动。"
+    items[2] = "网络似乎不稳定，请稍后再试或检查网络连接。"
   }
 
   return items

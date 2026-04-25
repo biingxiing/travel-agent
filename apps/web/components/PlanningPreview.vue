@@ -12,9 +12,6 @@ import {
   TramFront,
   Compass,
   StickyNote,
-  Map as MapIcon,
-  Replace,
-  Info,
 } from "lucide-vue-next"
 import type { Plan, PlanItem } from "@travel-agent/shared"
 import { useChatStore } from "~/stores/chat"
@@ -22,7 +19,6 @@ import { useWorkspaceStore } from "~/stores/workspace"
 import type { ItineraryScore, ItemScore } from "~/utils/scoring"
 import { scorePlan, buildItemScoreMap, gradeColor } from "~/utils/scoring"
 import { poiVisualForType } from "~/utils/poi-visual"
-import Tooltip from "~/components/ui/Tooltip.vue"
 
 const props = defineProps<{
   phase: "idle" | "planning" | "result" | "error"
@@ -317,17 +313,6 @@ void currentScore
                 <span v-if="item.estimatedCost" class="poi-cost tabular">
                   <span class="currency-unit">{{ (item.estimatedCost.currency || 'CNY') === 'CNY' ? '¥' : item.estimatedCost.currency }}</span>{{ item.estimatedCost.amount.toLocaleString() }}
                 </span>
-              </div>
-              <div class="poi-actions">
-                <Tooltip label="在地图上查看">
-                  <button type="button" class="poi-action" aria-label="在地图上查看"><MapIcon :size="14" :stroke-width="1.5" /></button>
-                </Tooltip>
-                <Tooltip label="替换">
-                  <button type="button" class="poi-action" aria-label="替换"><Replace :size="14" :stroke-width="1.5" /></button>
-                </Tooltip>
-                <Tooltip label="详情">
-                  <button type="button" class="poi-action" aria-label="详情"><Info :size="14" :stroke-width="1.5" /></button>
-                </Tooltip>
               </div>
             </Motion>
           </div>
@@ -1032,32 +1017,6 @@ void currentScore
   color: var(--text);
 }
 
-.poi-actions {
-  position: absolute;
-  right: 10px; bottom: 10px;
-  display: inline-flex; gap: 4px;
-  opacity: 0;
-  transform: translateY(4px);
-  transition: opacity var(--dur-fast) var(--ease-out), transform var(--dur-fast) var(--ease-out);
-  pointer-events: none;
-}
-.poi-card:hover .poi-actions {
-  opacity: 1; transform: translateY(0);
-  pointer-events: auto;
-}
-.poi-action {
-  appearance: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px;
-  border-radius: var(--r-xs);
-  border: 1px solid var(--border);
-  background: var(--bg-elevated);
-  color: var(--text-muted);
-  cursor: pointer;
-  transition: border-color var(--dur-fast) var(--ease-out), color var(--dur-fast) var(--ease-out);
-}
-.poi-action:hover { border-color: var(--brand-blue); color: var(--brand-blue); }
-
 @media (max-width: 640px) {
   .poi-card { grid-template-columns: 44px 1fr; gap: 10px; }
   .poi-right {
@@ -1065,13 +1024,8 @@ void currentScore
     flex-direction: row;
     justify-content: space-between;
   }
-  .poi-actions {
-    position: static; opacity: 1; transform: none; pointer-events: auto;
-    margin-top: 6px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .poi-card { transition: none; }
-  .poi-actions { transition: none; }
 }
 </style>
