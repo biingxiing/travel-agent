@@ -73,7 +73,9 @@ const pageNotice = computed(() => {
 
   return ""
 })
-const breadcrumbDestination = computed(() => currentPlan.value?.destination || "")
+const breadcrumbDestination = computed(() =>
+  (currentPlan.value?.destinations ?? []).join(' / ') || ''
+)
 
 watch(pageNotice, (msg) => {
   if (msg) $toast.info(msg)

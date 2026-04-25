@@ -55,7 +55,8 @@ function entryFromSession(session: SessionState): TripHistoryEntry | null {
   if (!session?.id) return null
   const plan: Plan | null = session.currentPlan ?? null
   const brief = session.brief
-  const destination = brief?.destination || plan?.destination || ""
+  const dests: string[] = brief?.destinations ?? plan?.destinations ?? []
+  const destination = dests.length > 1 ? dests.join(' / ') : (dests[0] ?? '')
   const title =
     session.title ||
     plan?.title ||
@@ -67,7 +68,7 @@ function entryFromSession(session: SessionState): TripHistoryEntry | null {
   dailyPlans?.forEach((day) => {
     if (day.city) cities.add(day.city)
   })
-  if (destination) cities.add(destination)
+  ;(brief?.destinations ?? plan?.destinations ?? []).forEach((d) => { if (d) cities.add(d) })
 
   let poiCount = 0
   if (Array.isArray(dailyPlans)) {
