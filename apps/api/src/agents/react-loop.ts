@@ -3,6 +3,7 @@ import { extractBrief } from './extractor.js'
 import { evaluate } from './evaluator.js'
 import { runInitial, runRefine } from './generator.js'
 import { prefetchFlyaiContext } from './prefetch.js'
+import { generateClarification } from './clarifier.js'
 import { getEvalConfig } from '../config/eval.js'
 import { isBriefMinimallyComplete, type SessionState, type ChatStreamEvent, type ItineraryScoreSummary, type Plan } from '@travel-agent/shared'
 
@@ -32,13 +33,33 @@ export async function* runReactLoop(
 
   if (!isBriefMinimallyComplete(ext.brief)) {
     const missingDest = !ext.brief.destinations?.length
-    const question = missingDest ? '请告诉我目的地是哪里？' : '请告诉我打算玩几天？'
+    const reason = missingDest ? 'missing_destination' : 'missing_days'
+    const { question, defaultSuggestion } = await generateClarification(
+      session.messages, ext.brief, reason,
+    )
     session.status = 'awaiting_user'
     session.pendingClarification = question
     yield {
       type: 'clarify_needed',
       question,
-      reason: missingDest ? 'missing_destination' : 'missing_days',
+      reason,
+      ...(defaultSuggestion !== null && { defaultSuggestion }),
+    }
+    return
+  }
+
+  // Phase 0.5: ask for travel dates if missing
+  if (!ext.brief.travelDates) {
+    const { question, defaultSuggestion } = await generateClarification(
+      session.messages, ext.brief, 'missing_dates',
+    )
+    session.status = 'awaiting_user'
+    session.pendingClarification = question
+    yield {
+      type: 'clarify_needed',
+      question,
+      reason: 'missing_dates',
+      ...(defaultSuggestion !== null && { defaultSuggestion }),
     }
     return
   }
