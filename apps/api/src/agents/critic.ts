@@ -1,4 +1,5 @@
-import { llm, FAST_MODEL } from '../llm/client.js'
+import { FAST_MODEL } from '../llm/client.js'
+import { loggedCompletion } from '../llm/logger.js'
 import { CriticReportSchema, type CriticReport, type Plan, type TripBrief } from '@travel-agent/shared'
 import type OpenAI from 'openai'
 
@@ -49,7 +50,7 @@ export async function criticReview(plan: Plan, brief: TripBrief): Promise<Critic
 
   let resp
   try {
-    resp = await llm.chat.completions.create({
+    resp = await loggedCompletion('critic', {
       model: FAST_MODEL,
       messages: llmMessages,
       temperature: 0.2,

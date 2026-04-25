@@ -103,9 +103,13 @@ export async function* loggedStream(
 ): AsyncGenerator<OpenAI.Chat.ChatCompletionChunk> {
   const ctx = getCtx()
   const start = Date.now()
+  const existingStreamOptions = (params as Record<string, unknown>).stream_options
   const paramsWithUsage = {
     ...params,
-    stream_options: { include_usage: true, ...(params as Record<string, unknown>).stream_options },
+    stream_options: {
+      include_usage: true,
+      ...(existingStreamOptions && typeof existingStreamOptions === 'object' ? existingStreamOptions as Record<string, unknown> : {}),
+    },
   }
   let content = ''
   let ok = true
