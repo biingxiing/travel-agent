@@ -22,7 +22,7 @@ import type { Plan, EvaluationReport, TripBrief } from '@travel-agent/shared'
 describe('generator.runRefine', () => {
   it('returns improved plan from JSON output', async () => {
     const newPlan: Plan = {
-      title: 't', destination: '北京', days: 1, travelers: 1, pace: 'balanced',
+      title: 't', destinations: ['北京'], days: 1, travelers: 1, pace: 'balanced',
       preferences: [], dailyPlans: [{ day: 1, items: [
         { type: 'transport', title: 'CA1234' },
       ] }], tips: [], disclaimer: 'x',
@@ -42,7 +42,7 @@ describe('generator.runRefine', () => {
       combined: { overall: 0, transport: 0, lodging: null, attraction: null },
       blockers: [], itemIssues: [], globalIssues: [], converged: false,
     }
-    const brief: TripBrief = { destination: '北京', days: 1, travelers: 1, preferences: [] }
+    const brief: TripBrief = { destinations: ['北京'], days: 1, travelers: 1, preferences: [] }
     const out = await runRefine(original, report, brief)
     expect(out.dailyPlans[0].items).toHaveLength(1)
     expect(out.dailyPlans[0].items[0].title).toBe('CA1234')

@@ -12,7 +12,7 @@ import { prefetchFlyaiContext, __resetPrefetchCache } from './prefetch.js'
 import type { TripBrief } from '@travel-agent/shared'
 
 const fullBrief: TripBrief = {
-  destination: '上海',
+  destinations: ['上海'],
   days: 3,
   originCity: '北京',
   travelers: 2,
@@ -26,15 +26,19 @@ describe('prefetchFlyaiContext', () => {
     __resetPrefetchCache()
   })
 
-  it('invokes search-flight + search-hotel + search-poi when brief complete', async () => {
+  it('invokes flight+train legs and hotel+poi for each city when brief complete', async () => {
     invokeMock.mockResolvedValue('{"data":{"itemList":[]}}')
     const ctx = await prefetchFlyaiContext(fullBrief, 'session-1')
-    expect(invokeMock).toHaveBeenCalledTimes(3)
+    // legs: 北京→上海 (offset 0), 上海→北京 (offset 2) = 2 legs → 4 transport tasks
+    // city tasks: hotel+poi for 上海 = 2 tasks
+    // total = 6 tasks, all succeed → 6 entries
+    expect(invokeMock).toHaveBeenCalledTimes(6)
     const cmds = invokeMock.mock.calls.map((c) => (c[1] as Record<string, unknown>).command)
     expect(cmds).toContain('search-flight')
+    expect(cmds).toContain('search-train')
     expect(cmds).toContain('search-hotel')
     expect(cmds).toContain('search-poi')
-    expect(ctx).toHaveLength(3)
+    expect(ctx).toHaveLength(6)
     expect(ctx[0]).toContain('真实')
   })
 
@@ -68,7 +72,7 @@ describe('prefetchFlyaiContext', () => {
     const ctx = await p
     vi.useRealTimers()
     expect(poiCalls).toBe(2)
-    expect(ctx).toHaveLength(3)
+    expect(ctx).toHaveLength(6)
     warn.mockRestore()
   })
 
@@ -83,18 +87,21 @@ describe('prefetchFlyaiContext', () => {
     await vi.advanceTimersByTimeAsync(3500)
     const ctx = await p
     vi.useRealTimers()
-    expect(ctx).toHaveLength(2)
+    // poi fails both times → 5 out of 6 succeed
+    expect(ctx).toHaveLength(5)
     const poiCalls = invokeMock.mock.calls.filter((c) => (c[1] as Record<string, unknown>).command === 'search-poi').length
     expect(poiCalls).toBe(2)
     warn.mockRestore()
   })
 
-  it('skips search-flight when no originCity', async () => {
+  it('skips outbound/return flight legs when no originCity', async () => {
     invokeMock.mockResolvedValue('{"data":{"itemList":[]}}')
     const brief: TripBrief = { ...fullBrief, originCity: undefined }
     const ctx = await prefetchFlyaiContext(brief, 'session-2')
     const cmds = invokeMock.mock.calls.map((c) => (c[1] as Record<string, unknown>).command)
+    // No origin → no legs → no flight/train. Only hotel+poi per city = 2 tasks
     expect(cmds).not.toContain('search-flight')
+    expect(cmds).not.toContain('search-train')
     expect(cmds).toContain('search-hotel')
     expect(cmds).toContain('search-poi')
     expect(ctx).toHaveLength(2)
@@ -132,7 +139,8 @@ describe('prefetchFlyaiContext', () => {
     })
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     const ctx = await prefetchFlyaiContext(fullBrief, 'session-5')
-    expect(ctx).toHaveLength(2)
+    // 2 flights fail (both legs), 2 trains + hotel + poi succeed = 4
+    expect(ctx).toHaveLength(4)
     const joined = ctx.join('\n')
     expect(joined).not.toContain('search-flight')
     expect(warn).toHaveBeenCalled()
@@ -153,5 +161,32 @@ describe('prefetchFlyaiContext', () => {
     const firstCount = invokeMock.mock.calls.length
     await prefetchFlyaiContext({ ...fullBrief, days: 5 }, 'session-cache2')
     expect(invokeMock.mock.calls.length).toBeGreaterThan(firstCount)
+  })
+
+  it('handles multi-destination brief with inter-city legs', async () => {
+    invokeMock.mockResolvedValue('{"data":{"itemList":[]}}')
+    const multiCityBrief: TripBrief = {
+      destinations: ['北京', '上海', '广州'],
+      days: 6,
+      originCity: '深圳',
+      travelers: 2,
+      preferences: [],
+      travelDates: { start: '2026-06-01', end: '2026-06-07' },
+    }
+    await prefetchFlyaiContext(multiCityBrief, 'session-multi')
+    const cmds = invokeMock.mock.calls.map((c) => (c[1] as Record<string, unknown>).command)
+    // legs: 深圳→北京, 北京→上海, 上海→广州, 广州→深圳 = 4 legs → 8 transport tasks
+    // city tasks: hotel+poi × 3 cities = 6 tasks
+    // total: 14 tasks
+    expect(invokeMock).toHaveBeenCalledTimes(14)
+    const flights = invokeMock.mock.calls.filter((c) => (c[1] as Record<string, unknown>).command === 'search-flight')
+    expect(flights).toHaveLength(4)
+    const hotels = invokeMock.mock.calls.filter((c) => (c[1] as Record<string, unknown>).command === 'search-hotel')
+    expect(hotels).toHaveLength(3)
+    // Each city's hotel should use the city name
+    const hotelDestNames = hotels.map((c) => (c[1] as Record<string, unknown>).destName)
+    expect(hotelDestNames).toContain('北京')
+    expect(hotelDestNames).toContain('上海')
+    expect(hotelDestNames).toContain('广州')
   })
 })

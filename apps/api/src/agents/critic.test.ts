@@ -10,7 +10,7 @@ import { criticReview } from './critic.js'
 import type { Plan } from '@travel-agent/shared'
 
 const samplePlan: Plan = {
-  title: 'Beijing 3D', destination: '北京', days: 3, travelers: 1,
+  title: 'Beijing 3D', destinations: ['北京'], days: 3, travelers: 1,
   pace: 'balanced', preferences: [], dailyPlans: [
     { day: 1, items: [{ type: 'transport', title: '高铁前往', description: '从上海乘高铁' }] },
     { day: 1, items: [] }, { day: 1, items: [] },
@@ -28,7 +28,7 @@ describe('critic', () => {
         globalIssues: ['节奏过紧'],
       })}}],
     })
-    const r = await criticReview(samplePlan, { destination: '北京', days: 3, travelers: 1, preferences: [] })
+    const r = await criticReview(samplePlan, { destinations: ['北京'], days: 3, travelers: 1, preferences: [] })
     expect(r.qualityScore).toBe(60)
     expect(r.blockers).toHaveLength(1)
     expect(r.itemIssues[0].suggestedAction).toBe('call_flyai_train')
@@ -38,7 +38,7 @@ describe('critic', () => {
     ;(llm.chat.completions.create as any).mockResolvedValue({
       choices: [{ message: { content: 'not json' } }],
     })
-    const r = await criticReview(samplePlan, { destination: '北京', days: 3, travelers: 1, preferences: [] })
+    const r = await criticReview(samplePlan, { destinations: ['北京'], days: 3, travelers: 1, preferences: [] })
     expect(r.qualityScore).toBe(0)
     expect(r.blockers).toEqual([])
   })
