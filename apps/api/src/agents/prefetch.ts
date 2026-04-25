@@ -17,7 +17,7 @@ export function __resetPrefetchCache(): void {
 function hashBrief(brief: TripBrief): string {
   // Only hash fields that influence the prefetch calls.
   const subset = {
-    destination: brief.destination,
+    destinations: brief.destinations,
     days: brief.days,
     originCity: brief.originCity ?? null,
     travelers: brief.travelers ?? null,
@@ -30,6 +30,12 @@ function pad(n: number): string { return n < 10 ? `0${n}` : `${n}` }
 
 function formatDate(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+
+function offsetDate(startStr: string, n: number): string {
+  const d = new Date(startStr)
+  d.setDate(d.getDate() + n)
+  return formatDate(d)
 }
 
 function defaultDateRange(days: number): { start: string; end: string } {
@@ -88,37 +94,41 @@ export async function prefetchFlyaiContext(
   }
 
   const dates = brief.travelDates ?? defaultDateRange(brief.days || 3)
+  const totalDays = brief.days || 3
+  const cities = brief.destinations
+  const origin = brief.originCity ?? null
 
   const tasks: Array<Promise<string | null>> = []
 
-  if (brief.originCity && brief.destination) {
-    tasks.push(tryInvoke({
-      command: 'search-flight',
-      origin: brief.originCity,
-      destination: brief.destination,
-      depDate: dates.start,
-    }, '航班'))
+  // Build transport legs
+  const legs: Array<{ from: string; to: string; depOffset: number }> = []
+  if (origin && cities.length > 0) {
+    legs.push({ from: origin, to: cities[0], depOffset: 0 })
+  }
+  for (let i = 0; i < cities.length - 1; i++) {
+    const offset = Math.round(totalDays * (i + 1) / cities.length)
+    legs.push({ from: cities[i], to: cities[i + 1], depOffset: offset })
+  }
+  if (origin && cities.length > 0) {
+    legs.push({ from: cities[cities.length - 1], to: origin, depOffset: totalDays - 1 })
   }
 
-  if (brief.destination) {
-    tasks.push(tryInvoke({
-      command: 'search-hotel',
-      destName: brief.destination,
-      checkInDate: dates.start,
-      checkOutDate: dates.end,
-    }, '酒店'))
+  // Flight + train for each leg
+  for (const leg of legs) {
+    const depDate = offsetDate(dates.start, leg.depOffset)
+    tasks.push(tryInvoke({ command: 'search-flight', origin: leg.from, destination: leg.to, depDate }, '航班'))
+    tasks.push(tryInvoke({ command: 'search-train',  origin: leg.from, destination: leg.to, depDate }, '火车'))
   }
 
-  if (brief.destination) {
-    tasks.push(tryInvoke({
-      command: 'search-poi',
-      cityName: brief.destination,
-    }, '景点'))
+  // Hotel + POI for each destination city
+  for (const city of cities) {
+    tasks.push(tryInvoke({ command: 'search-hotel', destName: city, checkInDate: dates.start, checkOutDate: dates.end }, '酒店'))
+    tasks.push(tryInvoke({ command: 'search-poi',   cityName: city }, '景点'))
   }
 
   const results = await Promise.all(tasks)
   const ctx = results.filter((r): r is string => r !== null)
   cache.set(key, ctx)
-  console.log(`[Prefetch] gathered ${ctx.length}/${tasks.length} entries for session=${sessionId} brief=${brief.destination}/${brief.days}d`)
+  console.log(`[Prefetch] gathered ${ctx.length}/${tasks.length} entries for session=${sessionId} cities=${cities.join(',')}/${totalDays}d`)
   return ctx
 }
