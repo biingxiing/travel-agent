@@ -130,7 +130,7 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
 .conversation-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
   overflow-y: auto;
   flex: 1;
   min-height: 0;
@@ -145,7 +145,7 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   border: 1px solid var(--border);
   border-radius: var(--r-md);
   background: var(--bg-subtle);
-  max-width: 85%;
+  max-width: min(640px, 85%);
   position: relative;
 }
 
@@ -155,6 +155,7 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   color: var(--text-inverse);
   border-color: transparent;
   border-radius: var(--r-md) var(--r-md) 4px var(--r-md);
+  max-width: min(520px, 85%);
 }
 
 .bubble-assistant {
@@ -163,6 +164,7 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   color: var(--text);
   border-color: var(--border);
   border-radius: var(--r-md) var(--r-md) var(--r-md) 4px;
+  max-width: min(640px, 85%);
 }
 
 .bubble-system {
@@ -197,6 +199,8 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   .conversation-shell { padding: 18px 18px 16px; }
   .panel-title h2 { font-size: 18px; }
   .bubble { max-width: 94%; }
+  .bubble-user,
+  .bubble-assistant { max-width: 94%; }
 }
 
 @media (prefers-reduced-motion: reduce) {
