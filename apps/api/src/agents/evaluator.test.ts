@@ -27,11 +27,11 @@ describe('evaluate', () => {
       qualityScore: 50, blockers: [], itemIssues: [], globalIssues: [],
     })
     const plan: Plan = {
-      title: 't', destination: 'd', days: 1, travelers: 1, pace: 'balanced',
+      title: 't', destinations: ['d'], days: 1, travelers: 1, pace: 'balanced',
       preferences: [], dailyPlans: [{ day: 1, items: fullTransport(100, 1) }],
       tips: [], disclaimer: 'x',
     }
-    const brief: TripBrief = { destination: 'd', days: 1, travelers: 1, preferences: [] }
+    const brief: TripBrief = { destinations: ['d'], days: 1, travelers: 1, preferences: [] }
     const r = await evaluate(plan, brief)
     // ruleScore.transport.score = 100, ruleScore.overall depends on coverage too
     // combined.transport = 100 (no LLM per-cat); use rule only for cats
@@ -45,7 +45,7 @@ describe('evaluate', () => {
       qualityScore: 0, blockers: [], itemIssues: [], globalIssues: [],
     })
     const plan: Plan = {
-      title: 't', destination: 'd', days: 1, travelers: 1, pace: 'balanced',
+      title: 't', destinations: ['d'], days: 1, travelers: 1, pace: 'balanced',
       preferences: [], dailyPlans: [{ day: 1, items: [
         ...fullTransport(100, 1),
         { type: 'lodging', title: '北京饭店 大床房', description: '入住 14:00 后，每晚 ¥800，地址：王府井大街 33 号，含早餐', estimatedCost: { amount: 800, currency: 'CNY' } },
@@ -54,7 +54,7 @@ describe('evaluate', () => {
       ] }],
       tips: [], disclaimer: 'x',
     }
-    const brief: TripBrief = { destination: 'd', days: 1, travelers: 1, preferences: [] }
+    const brief: TripBrief = { destinations: ['d'], days: 1, travelers: 1, preferences: [] }
     const r = await evaluate(plan, brief)
     expect(r.converged).toBe(true)
   })
@@ -65,10 +65,10 @@ describe('evaluate', () => {
       itemIssues: [], globalIssues: [],
     })
     const plan: Plan = {
-      title: 't', destination: 'd', days: 1, travelers: 1, pace: 'balanced',
+      title: 't', destinations: ['d'], days: 1, travelers: 1, pace: 'balanced',
       preferences: [], dailyPlans: [{ day: 1, items: [] }], tips: [], disclaimer: 'x',
     }
-    const r = await evaluate(plan, { destination: 'd', days: 1, travelers: 1, preferences: [] })
+    const r = await evaluate(plan, { destinations: ['d'], days: 1, travelers: 1, preferences: [] })
     expect(r.blockers).toHaveLength(1)
   })
 })

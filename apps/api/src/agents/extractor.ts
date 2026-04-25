@@ -1,7 +1,7 @@
 import { z } from 'zod'
 import { FAST_MODEL } from '../llm/client.js'
 import { loggedCompletion } from '../llm/logger.js'
-import { TripBriefSchema, type TripBrief } from '@travel-agent/shared'
+import { TripBriefSchema, rawBriefShape, type TripBrief } from '@travel-agent/shared'
 import type { Message } from '@travel-agent/shared'
 import type OpenAI from 'openai'
 
@@ -9,7 +9,7 @@ const IntentEnum = z.enum(['new', 'refine', 'clarify-answer', 'continue'])
 export type ExtractIntent = z.infer<typeof IntentEnum>
 
 const ExtractorOutputSchema = z.object({
-  brief: TripBriefSchema.partial().default({}),
+  brief: rawBriefShape.partial().default({}),
   intent: IntentEnum.default('new'),
   changedFields: z.array(z.string()).default([]),
 })
@@ -31,10 +31,14 @@ function regexFallback(text: string): Partial<TripBrief> {
     const m = text.match(re)
     if (m) { out.days = parseInt(m[1], 10); break }
   }
+  const foundDests: string[] = []
   for (const re of DESTINATION_REGEXES) {
-    const m = text.match(re)
-    if (m) { out.destination = m[1]; break }
+    const globalRe = new RegExp(re.source, (re.flags ?? '').replace('g', '') + 'g')
+    for (const m of text.matchAll(globalRe)) {
+      if (m[1] && !foundDests.includes(m[1])) foundDests.push(m[1])
+    }
   }
+  if (foundDests.length > 0) out.destinations = foundDests
   for (const re of ORIGIN_REGEXES) {
     const m = text.match(re)
     if (m) { out.originCity = m[1]; break }
@@ -51,14 +55,15 @@ const SYSTEM_PROMPT = `你是旅行需求抽取器。读取用户对话历史和
 输出 JSON（仅输出一个对象，不要 markdown）：
 {
   "brief": {
-    "destination": "...", "days": 数字, "originCity": "...",
+    "destinations": ["目的地1", "目的地2"],  // 按游览顺序，多城行程输出多个
+    "days": 数字, "originCity": "...",
     "travelers": 数字, "preferences": ["..."], "pace": "relaxed|balanced|packed",
     "budget": { "amount": 数字, "currency": "CNY" },
     "travelDates": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" },
     "notes": "..."
   },
   "intent": "new" | "refine" | "clarify-answer" | "continue",
-  "changedFields": ["destination", ...]
+  "changedFields": ["destinations", ...]
 }
 
 意图判定规则：
@@ -109,7 +114,7 @@ export async function extractBrief(
     ...parsed.brief,       // LLM overrides regex if it gave a value
     travelers: parsed.brief.travelers ?? fallback.travelers ?? existingBrief?.travelers ?? 1,
     preferences: parsed.brief.preferences ?? existingBrief?.preferences ?? [],
-    destination: parsed.brief.destination ?? fallback.destination ?? existingBrief?.destination ?? '',
+    destinations: parsed.brief.destinations ?? fallback.destinations ?? existingBrief?.destinations ?? [],
     days: parsed.brief.days ?? fallback.days ?? existingBrief?.days ?? 0,
   }
   const brief = TripBriefSchema.parse(briefCandidate)

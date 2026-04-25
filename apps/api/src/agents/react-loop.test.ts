@@ -23,7 +23,7 @@ import { runInitial, runRefine } from './generator.js'
 import type { SessionState, Plan } from '@travel-agent/shared'
 
 const samplePlan: Plan = {
-  title: 't', destination: 'd', days: 1, travelers: 1, pace: 'balanced',
+  title: 't', destinations: ['d'], days: 1, travelers: 1, pace: 'balanced',
   preferences: [], dailyPlans: [{ day: 1, items: [] }], tips: [], disclaimer: 'x',
 }
 
@@ -63,7 +63,7 @@ describe('runReactLoop', () => {
 
   it('clarify if extractor returns incomplete brief', async () => {
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destination: '', days: 0, travelers: 1, preferences: [] },
+      brief: { destinations: [], days: 0, travelers: 1, preferences: [] },
       intent: 'new', changedFields: [],
     })
     const session = baseSession()
@@ -73,7 +73,7 @@ describe('runReactLoop', () => {
 
   it('runs initial generation then converges immediately', async () => {
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destination: 'd', days: 1, travelers: 1, preferences: [] },
+      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [] },
       intent: 'new', changedFields: [],
     })
     ;(runInitial as any).mockImplementation(async function* () {
@@ -92,7 +92,7 @@ describe('runReactLoop', () => {
 
   it('hits max iter, emits max_iter_reached', async () => {
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destination: 'd', days: 1, travelers: 1, preferences: [] },
+      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [] },
       intent: 'new', changedFields: [],
     })
     ;(runInitial as any).mockImplementation(async function* () { yield { type: 'plan', plan: samplePlan }; return samplePlan })
@@ -108,7 +108,7 @@ describe('runReactLoop', () => {
   it('aborts when runId mismatches', async () => {
     const session = baseSession()
     ;(extractBrief as any).mockResolvedValue({
-      brief: { destination: 'd', days: 1, travelers: 1, preferences: [] },
+      brief: { destinations: ['d'], days: 1, travelers: 1, preferences: [] },
       intent: 'new', changedFields: [],
     })
     ;(runInitial as any).mockImplementation(async function* () { yield { type: 'plan', plan: samplePlan }; return samplePlan })

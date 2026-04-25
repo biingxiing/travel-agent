@@ -31,14 +31,14 @@ export async function* runReactLoop(
   session.brief = ext.brief
 
   if (!isBriefMinimallyComplete(ext.brief)) {
+    const missingDest = !ext.brief.destinations?.length
+    const question = missingDest ? '请告诉我目的地是哪里？' : '请告诉我打算玩几天？'
     session.status = 'awaiting_user'
-    session.pendingClarification = !ext.brief.destination
-      ? '请告诉我目的地是哪里？'
-      : '请告诉我打算玩几天？'
+    session.pendingClarification = question
     yield {
       type: 'clarify_needed',
-      question: session.pendingClarification,
-      reason: !ext.brief.destination ? 'missing_destination' : 'missing_days',
+      question,
+      reason: missingDest ? 'missing_destination' : 'missing_days',
     }
     return
   }

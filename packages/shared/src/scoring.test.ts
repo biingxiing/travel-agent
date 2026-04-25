@@ -3,7 +3,7 @@ import { scorePlan, gradeFromScore } from './scoring.js'
 import type { Plan } from './plan.js'
 
 const minimalPlan: Plan = {
-  title: 't', destination: 'd', days: 1, travelers: 1, pace: 'balanced',
+  title: 't', destinations: ['d'], days: 1, travelers: 1, pace: 'balanced',
   preferences: [], dailyPlans: [{ day: 1, items: [] }], tips: [],
   disclaimer: 'x',
 }

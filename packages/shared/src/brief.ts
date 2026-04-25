@@ -1,9 +1,9 @@
 import { z } from 'zod'
 
-export const TripBriefSchema = z.object({
-  destination: z.string(),
-  days: z.number().int().nonnegative(),
+export const rawBriefShape = z.object({
+  destinations: z.array(z.string()).default([]),
   originCity: z.string().optional(),
+  days: z.number().int().nonnegative(),
   travelers: z.number().int().positive().default(1),
   travelDates: z.object({
     start: z.string(),
@@ -18,12 +18,23 @@ export const TripBriefSchema = z.object({
   notes: z.string().optional(),
 })
 
-export type TripBrief = z.infer<typeof TripBriefSchema>
+export const TripBriefSchema = z.preprocess((raw) => {
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const r = raw as Record<string, unknown>
+    if (typeof r.destination === 'string' && !Array.isArray(r.destinations)) {
+      r.destinations = [r.destination]
+      delete r.destination
+    }
+  }
+  return raw
+}, rawBriefShape)
+
+export type TripBrief = z.infer<typeof rawBriefShape>
 
 export function isBriefMinimallyComplete(b: Partial<TripBrief>): boolean {
-  return !!b.destination && !!b.days && b.days > 0
+  return (b.destinations?.length ?? 0) > 0 && !!b.days && b.days > 0
 }
 
 export function mergeBrief(prev: TripBrief, patch: Partial<TripBrief>): TripBrief {
-  return TripBriefSchema.parse({ ...prev, ...patch })
+  return TripBriefSchema.parse({ ...prev, ...patch }) as TripBrief
 }
