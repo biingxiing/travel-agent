@@ -53,15 +53,13 @@ const { errorMessage: authErrorMessage, status: authStatus, username } = storeTo
 const { sessionId: workspaceSessionId, currentPlan } = storeToRefs(workspaceStore)
 const logoutPending = ref(false)
 const pageShellRef = ref<HTMLElement | null>(null)
-const mainSectionRef = ref<HTMLElement | null>(null)
 const mainSplitRef = ref<HTMLElement | null>(null)
-const mainSectionHeight = ref<number | null>(null)
 const leftPanelWidth = ref(54)
-const isResizingMainSection = ref(false)
 const isResizingSplit = ref(false)
 let stopActiveResize: (() => void) | null = null
 const hasConversation = computed(() => messages.value.length > 1)
 const hasWorkspaceState = computed(() => Boolean(currentPlan.value || workspaceSessionId.value))
+const hasPlanArtifact = computed(() => Boolean(currentPlan.value))
 const isAuthenticated = computed(() => authStatus.value === "authenticated")
 const isLanding = computed(() => !hasConversation.value && !hasWorkspaceState.value)
 const pageNotice = computed(() => {
@@ -84,15 +82,11 @@ watch(authErrorMessage, (msg) => {
   if (msg) $toast.error(msg)
 })
 
-const mainSectionStyle = computed(() =>
-  mainSectionHeight.value ? { height: `${mainSectionHeight.value}px` } : undefined,
-)
 const mainGridStyle = computed(() => ({
   "--main-grid-left": `${leftPanelWidth.value}%`,
 }))
 
 const PANEL_LAYOUT_STORAGE_KEY = "travel-agent-panel-layout"
-const MAIN_SECTION_MIN_HEIGHT = 360
 const MAIN_SPLIT_MIN_LEFT_PX = 420
 const MAIN_SPLIT_MIN_RIGHT_PX = 420
 
@@ -109,15 +103,10 @@ function readStoredPanelLayout() {
   try {
     const parsed = JSON.parse(raw) as {
       leftPanelWidth?: number
-      mainSectionHeight?: number | null
     }
 
     if (typeof parsed.leftPanelWidth === "number") {
       leftPanelWidth.value = parsed.leftPanelWidth
-    }
-
-    if (typeof parsed.mainSectionHeight === "number") {
-      mainSectionHeight.value = parsed.mainSectionHeight
     }
   } catch {
     window.sessionStorage.removeItem(PANEL_LAYOUT_STORAGE_KEY)
@@ -131,28 +120,8 @@ function writeStoredPanelLayout() {
     PANEL_LAYOUT_STORAGE_KEY,
     JSON.stringify({
       leftPanelWidth: leftPanelWidth.value,
-      mainSectionHeight: mainSectionHeight.value,
     }),
   )
-}
-
-function availableMainSectionHeight() {
-  const shell = pageShellRef.value
-  const main = mainSectionRef.value
-
-  if (!shell || !main) {
-    return 760
-  }
-
-  const shellRect = shell.getBoundingClientRect()
-  const mainRect = main.getBoundingClientRect()
-  const maxHeight = shellRect.height - (mainRect.top - shellRect.top)
-
-  return Math.max(MAIN_SECTION_MIN_HEIGHT, Math.floor(maxHeight))
-}
-
-function clampMainSectionHeight(value: number) {
-  return clamp(value, MAIN_SECTION_MIN_HEIGHT, availableMainSectionHeight())
 }
 
 function clampLeftPanelPercent(value: number) {
@@ -173,14 +142,9 @@ function syncPanelLayoutBounds() {
   }
 
   leftPanelWidth.value = clampLeftPanelPercent(leftPanelWidth.value)
-
-  if (mainSectionHeight.value !== null) {
-    mainSectionHeight.value = clampMainSectionHeight(mainSectionHeight.value)
-  }
 }
 
 function clearResizeState() {
-  isResizingMainSection.value = false
   isResizingSplit.value = false
   document.body.classList.remove("is-panel-resizing")
 }
@@ -214,24 +178,6 @@ function beginPointerResize(
   window.addEventListener("pointermove", move)
   window.addEventListener("pointerup", stop)
   window.addEventListener("pointercancel", stop)
-}
-
-function startMainSectionResize(event: PointerEvent) {
-  if (!import.meta.client || window.innerWidth <= 980 || !mainSectionRef.value) {
-    return
-  }
-
-  isResizingMainSection.value = true
-  const startY = event.clientY
-  const startHeight = mainSectionRef.value.offsetHeight
-
-  beginPointerResize(
-    event,
-    (moveEvent) => {
-      mainSectionHeight.value = clampMainSectionHeight(startHeight + moveEvent.clientY - startY)
-    },
-    writeStoredPanelLayout,
-  )
 }
 
 function startSplitResize(event: PointerEvent) {
@@ -481,7 +427,7 @@ onBeforeUnmount(() => {
           <span class="page-breadcrumb-sep">/</span>
           <span class="page-breadcrumb-current">{{ breadcrumbDestination }}</span>
         </div>
-        <p v-else class="page-topbar-copy">
+        <p v-else-if="isLanding" class="page-topbar-copy">
           输入目的地、天数、预算和偏好，我会生成可继续追问的旅行方案。
         </p>
       </div>
@@ -545,13 +491,13 @@ onBeforeUnmount(() => {
         @continue="onContinue"
       />
 
-      <div
-        ref="mainSectionRef"
-        class="resizable-panel resizable-panel-main"
-        :class="{ 'is-resizing': isResizingMainSection }"
-        :style="mainSectionStyle"
-      >
-        <section ref="mainSplitRef" class="main-grid" :style="mainGridStyle">
+      <section class="main-section">
+        <section
+          ref="mainSplitRef"
+          class="main-grid"
+          :class="{ 'is-single-panel': !hasPlanArtifact }"
+          :style="mainGridStyle"
+        >
           <div class="main-grid-panel main-grid-panel-primary">
             <ChatPanel
               :agent-status="agentStatus"
@@ -572,37 +518,32 @@ onBeforeUnmount(() => {
             </ChatPanel>
           </div>
 
-          <button
-            type="button"
-            class="main-grid-divider"
-            :class="{ 'is-resizing': isResizingSplit }"
-            aria-label="调整对话区和结果区宽度"
-            @pointerdown="startSplitResize"
-          >
-            <span class="main-grid-divider-track" />
-            <span class="main-grid-divider-grip">
-              <span />
-              <span />
-              <span />
-            </span>
-          </button>
+          <template v-if="hasPlanArtifact">
+            <button
+              type="button"
+              class="main-grid-divider"
+              :class="{ 'is-resizing': isResizingSplit }"
+              aria-label="调整对话区和结果区宽度"
+              @pointerdown="startSplitResize"
+            >
+              <span class="main-grid-divider-track" />
+              <span class="main-grid-divider-grip">
+                <span />
+                <span />
+                <span />
+              </span>
+            </button>
 
-          <div class="main-grid-panel">
-            <PlanningPreview
-              :agent-status="agentStatus"
-              :error-message="errorMessage"
-              :phase="phase"
-            />
-          </div>
+            <div class="main-grid-panel">
+              <PlanningPreview
+                :agent-status="agentStatus"
+                :error-message="errorMessage"
+                :phase="phase"
+              />
+            </div>
+          </template>
         </section>
-
-        <button
-          type="button"
-          class="panel-resize-handle"
-          aria-label="调整下方工作区高度"
-          @pointerdown="startMainSectionResize"
-        />
-      </div>
+      </section>
     </template>
   </main>
 </template>
