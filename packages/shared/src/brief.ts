@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-const rawBriefShape = z.object({
+export const rawBriefShape = z.object({
   destinations: z.array(z.string()).default([]),
   originCity: z.string().optional(),
   days: z.number().int().nonnegative(),
