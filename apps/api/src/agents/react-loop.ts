@@ -1,23 +1,78 @@
+// apps/api/src/agents/react-loop.ts
 import { randomUUID } from 'crypto'
-import { extractBrief } from './extractor.js'
-import { evaluate } from './evaluator.js'
-import { runInitial, runRefine } from './generator.js'
-import { prefetchFlyaiContext } from './prefetch.js'
-import { generateClarification } from './clarifier.js'
-import { getEvalConfig } from '../config/eval.js'
-import {
-  isBriefMinimallyComplete,
-  type SessionState, type ChatStreamEvent, type ItineraryScoreSummary, type Plan,
-} from '@travel-agent/shared'
+import type OpenAI from 'openai'
+import { PLANNER_MODEL } from '../llm/client.js'
+import { loggedStream } from '../llm/logger.js'
+import type { SessionState, ChatStreamEvent } from '@travel-agent/shared'
+import { ALL_TOOLS, toOpenAITools, buildOrchestratorMessages } from './tools/index.js'
+import type { EmitFn, LoopState } from './tools/types.js'
+import { executeSubagents } from './tool-execution.js'
+import type { ToolCallBlock } from './tool-execution.js'
 
-function summarize(report: Awaited<ReturnType<typeof evaluate>>, iteration: number): ItineraryScoreSummary {
-  return {
-    overall: report.combined.overall,
-    transport: report.combined.transport,
-    lodging: report.combined.lodging,
-    attraction: report.combined.attraction,
-    iteration,
+const MAX_TURNS = 10
+
+async function streamOrchestrator(
+  state: LoopState,
+  emit: EmitFn,
+): Promise<{
+  assistantMessage: OpenAI.Chat.ChatCompletionMessageParam
+  toolCalls: ToolCallBlock[]
+}> {
+  let fullContent = ''
+  const rawToolCalls = new Map<number, { id: string; name: string; arguments: string }>()
+  const openAITools = toOpenAITools(state.tools)
+
+  for await (const chunk of loggedStream('orchestrator', {
+    model: PLANNER_MODEL,
+    messages: state.messages,
+    tools: openAITools,
+    tool_choice: 'auto',
+    temperature: 0.3,
+  })) {
+    const delta = chunk.choices[0]?.delta
+    if (!delta) continue
+
+    if (delta.content) {
+      fullContent += delta.content
+      await emit({ type: 'tool_reasoning', delta: delta.content } as any)
+    }
+
+    if (delta.tool_calls) {
+      for (const tc of delta.tool_calls) {
+        const idx = tc.index ?? 0
+        const existing = rawToolCalls.get(idx) ?? { id: '', name: '', arguments: '' }
+        rawToolCalls.set(idx, {
+          id: tc.id ? tc.id : existing.id,
+          name: tc.function?.name ? tc.function.name : existing.name,
+          arguments: existing.arguments + (tc.function?.arguments ?? ''),
+        })
+      }
+    }
   }
+
+  const toolCallsList = Array.from(rawToolCalls.entries())
+    .sort(([a], [b]) => a - b)
+    .map(([, tc]) => tc)
+
+  const toolCalls: ToolCallBlock[] = toolCallsList.map(tc => {
+    let input: Record<string, unknown> = {}
+    try { input = JSON.parse(tc.arguments || '{}') } catch { /* malformed JSON */ }
+    return { id: tc.id, name: tc.name, input }
+  })
+
+  const assistantMessage: OpenAI.Chat.ChatCompletionMessageParam = toolCalls.length > 0
+    ? {
+      role: 'assistant',
+      content: fullContent || null,
+      tool_calls: toolCallsList.map(tc => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: { name: tc.name, arguments: tc.arguments },
+      })),
+    }
+    : { role: 'assistant', content: fullContent }
+
+  return { assistantMessage, toolCalls }
 }
 
 function isCancelled(session: SessionState, runId: string): boolean {
@@ -25,149 +80,58 @@ function isCancelled(session: SessionState, runId: string): boolean {
 }
 
 export async function* runReactLoop(
-  session: SessionState, runId: string,
+  session: SessionState,
+  runId: string,
+  emit: EmitFn,
 ): AsyncGenerator<ChatStreamEvent, void, void> {
-  const cfg = getEvalConfig()
-  const language = session.language ?? 'zh'
-
-  // Phase 0: Extract brief
-  yield { type: 'agent_step', agent: 'extractor', status: 'thinking' }
-  const ext = await extractBrief(session.messages, session.brief)
-  session.brief = ext.brief
-
-  if (!isBriefMinimallyComplete(ext.brief)) {
-    const missingDest = !ext.brief.destinations?.length
-    const reason = missingDest ? 'missing_destination' : 'missing_days'
-    const { question, defaultSuggestion } = await generateClarification(
-      session.messages, ext.brief, reason, language,
-    )
-    session.status = 'awaiting_user'
-    session.pendingClarification = question
-    yield { type: 'clarify_needed', question, reason, ...(defaultSuggestion !== null && { defaultSuggestion }) }
-    return
+  let state: LoopState = {
+    messages: buildOrchestratorMessages(session),
+    tools: ALL_TOOLS,
+    turnCount: 0,
+    runId,
   }
 
-  // Phase 0.5: ask for travel dates if missing
-  if (!ext.brief.travelDates) {
-    const { question, defaultSuggestion } = await generateClarification(
-      session.messages, ext.brief, 'missing_dates', language,
-    )
-    session.status = 'awaiting_user'
-    session.pendingClarification = question
-    yield { type: 'clarify_needed', question, reason: 'missing_dates', ...(defaultSuggestion !== null && { defaultSuggestion }) }
-    return
-  }
+  while (state.turnCount < MAX_TURNS) {
+    if (isCancelled(session, runId)) return
 
-  if (isCancelled(session, runId)) return
+    const { assistantMessage, toolCalls } = await streamOrchestrator(state, emit)
 
-  // Phase 1: Initial generation (only if no current plan, or user wants new trip)
-  if (!session.currentPlan || ext.intent === 'new') {
-    session.status = 'planning'
-    session.iterationCount = 0
-
-    yield { type: 'agent_step', agent: 'generator', status: 'thinking' }
-    let prefetched: string[] = []
-    try {
-      prefetched = await prefetchFlyaiContext(ext.brief, session.id)
-    } catch (err) {
-      console.warn('[ReactLoop] prefetchFlyaiContext failed (continuing without):', err)
+    // No tool calls → orchestrator decided it's done
+    if (toolCalls.length === 0) {
+      session.status = 'converged'
+      session.pendingClarification = null
+      yield { type: 'done', messageId: randomUUID(), converged: true }
+      return
     }
-    // Store prefetch so the single refine pass can reuse it without re-fetching
-    session.prefetchContext = prefetched
 
     if (isCancelled(session, runId)) return
 
-    let initial: Plan | null = null
-    const gen = runInitial(ext.brief, prefetched, language)
-    while (true) {
-      const r = await gen.next()
-      if (r.value && typeof r.value === 'object' && 'type' in r.value) {
-        yield r.value as ChatStreamEvent
-      }
-      if (r.done) { initial = r.value as Plan | null; break }
+    const { toolResults, shouldHalt } = await executeSubagents(
+      toolCalls, state.tools, session, emit,
+    )
+
+    if (shouldHalt) return
+
+    const toolResultMessages: OpenAI.Chat.ChatCompletionMessageParam[] = toolResults.map(r => ({
+      role: 'tool' as const,
+      tool_call_id: r.tool_call_id,
+      content: r.content,
+    }))
+
+    state = {
+      ...state,
+      messages: [...state.messages, assistantMessage, ...toolResultMessages],
+      turnCount: state.turnCount + 1,
     }
-    if (!initial) return
-    session.currentPlan = initial
-    session.iterationCount = 1
   }
 
-  // Phase 2: Evaluate once
-  if (isCancelled(session, runId)) return
-  session.status = 'refining'
-  yield { type: 'agent_step', agent: 'evaluator', status: 'evaluating' }
-  const report = await evaluate(session.currentPlan!, ext.brief, language)
-
-  const summary = summarize(report, session.iterationCount)
-  session.currentScore = summary
-  yield {
-    type: 'score',
-    overall: summary.overall,
-    transport: summary.transport,
-    lodging: summary.lodging,
-    attraction: summary.attraction,
-    iteration: session.iterationCount,
-    converged: report.converged,
-  }
-
-  if (report.blockers.length > 0) {
-    const b = report.blockers[0]
-    session.status = 'awaiting_user'
-    session.pendingClarification = b.message
-    yield { type: 'clarify_needed', question: b.message, reason: b.type }
-    return
-  }
-
-  if (report.converged) {
-    session.status = 'converged'
-    session.pendingClarification = null
-    yield { type: 'done', messageId: randomUUID(), converged: true }
-    return
-  }
-
-  // Phase 3: Single refine pass
-  if (isCancelled(session, runId)) return
-  session.iterationCount++
-  yield {
-    type: 'iteration_progress',
-    iteration: session.iterationCount,
-    maxIterations: 2,
-    currentScore: summary.overall,
-    targetScore: cfg.threshold,
-    status: 'refining',
-  }
-  yield { type: 'agent_step', agent: 'generator', status: 'refining' }
-  const refined = await runRefine(
-    session.currentPlan!, report, ext.brief,
-    session.prefetchContext ?? [],
-    language,
-  )
-  if (isCancelled(session, runId)) return
-  session.currentPlan = refined
-  yield { type: 'plan', plan: refined }
-
-  // Final evaluation after refine
-  yield { type: 'agent_step', agent: 'evaluator', status: 'evaluating' }
-  const finalReport = await evaluate(refined, ext.brief, language)
-  const finalSummary = summarize(finalReport, session.iterationCount)
-  session.currentScore = finalSummary
-  yield {
-    type: 'score',
-    overall: finalSummary.overall,
-    transport: finalSummary.transport,
-    lodging: finalSummary.lodging,
-    attraction: finalSummary.attraction,
-    iteration: session.iterationCount,
-    converged: finalReport.converged,
-  }
-
-  if (finalReport.converged) {
-    session.status = 'converged'
-    session.pendingClarification = null
-    yield { type: 'done', messageId: randomUUID(), converged: true }
-    return
-  }
-
-  // Score still below threshold — surface to user for manual /continue
+  // Reached MAX_TURNS without convergence
   session.status = 'awaiting_user'
-  yield { type: 'max_iter_reached', currentScore: finalSummary.overall, plan: refined }
+  if (session.currentPlan && session.currentScore) {
+    yield {
+      type: 'max_iter_reached',
+      currentScore: session.currentScore.overall,
+      plan: session.currentPlan,
+    }
+  }
 }
