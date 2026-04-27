@@ -72,12 +72,15 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
       await stream.writeSSE({ data: JSON.stringify(e), event: e.type })
     }
     let assistantContent = ''
+    const sendAndCollect = async (e: ChatStreamEvent) => {
+      if (e.type === 'token') assistantContent += e.delta
+      await send(e)
+    }
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
       await withSessionContext(fresh.id, runId, async () => {
-        for await (const ev of runReactLoop(fresh, runId)) {
+        for await (const ev of runReactLoop(fresh, runId, sendAndCollect)) {
           await send(ev)
-          if (ev.type === 'token') assistantContent += ev.delta
         }
       })
     } catch (err) {
@@ -118,8 +121,9 @@ sessionsRouter.post('/:id/continue', async (c) => {
     }
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
+      const sendDirect = async (e: ChatStreamEvent) => { await send(e) }
       await withSessionContext(fresh.id, runId, async () => {
-        for await (const ev of runReactLoop(fresh, runId)) await send(ev)
+        for await (const ev of runReactLoop(fresh, runId, sendDirect)) await send(ev)
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown'
