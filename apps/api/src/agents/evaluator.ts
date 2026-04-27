@@ -2,10 +2,10 @@ import { scorePlan, isConverged, type Plan, type TripBrief, type EvaluationRepor
 import { criticReview } from './critic.js'
 import { getEvalConfig } from '../config/eval.js'
 
-export async function evaluate(plan: Plan, brief: TripBrief): Promise<EvaluationReport> {
+export async function evaluate(plan: Plan, brief: TripBrief, language = 'zh'): Promise<EvaluationReport> {
   const cfg = getEvalConfig()
   const ruleScore = scorePlan(plan)
-  const critic = await criticReview(plan, brief)
+  const critic = await criticReview(plan, brief, language)  // pass language
   const llmScore = critic.qualityScore
 
   const overallCombined = Math.round(cfg.ruleWeight * ruleScore.overall + cfg.llmWeight * llmScore)
@@ -17,7 +17,6 @@ export async function evaluate(plan: Plan, brief: TripBrief): Promise<Evaluation
     attraction: ruleScore.attraction.score,
   }
 
-  // 收敛判据：用 rule 分（可重现可调试）
   const converged = isConverged(ruleScore, cfg.threshold) &&
     cfg.requiredCategories.every((cat) => ruleScore[cat].score !== null)
 

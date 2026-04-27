@@ -50,15 +50,18 @@ function regexFallback(text: string): Partial<TripBrief> {
   return out
 }
 
-const SYSTEM_PROMPT = `你是旅行需求抽取器。读取用户对话历史和现有 TripBrief（可能为 null），抽取/合并出最新的 TripBrief，并判定本次消息的意图。
+const SYSTEM_PROMPT = `You are a travel intent extractor. Read the conversation history and existing TripBrief (may be null), extract/merge the latest TripBrief, and determine the user's intent.
 
-输出 JSON（仅输出一个对象，不要 markdown）：
+Output JSON (one object only, no markdown):
 {
   "brief": {
-    "destinations": ["目的地1", "目的地2"],  // 按游览顺序，多城行程输出多个
-    "days": 数字, "originCity": "...",
-    "travelers": 数字, "preferences": ["..."], "pace": "relaxed|balanced|packed",
-    "budget": { "amount": 数字, "currency": "CNY" },
+    "destinations": ["city1", "city2"],
+    "days": number,
+    "originCity": "...",
+    "travelers": number,
+    "preferences": ["..."],
+    "pace": "relaxed|balanced|packed",
+    "budget": { "amount": number, "currency": "CNY" },
     "travelDates": { "start": "YYYY-MM-DD", "end": "YYYY-MM-DD" },
     "notes": "..."
   },
@@ -66,13 +69,13 @@ const SYSTEM_PROMPT = `你是旅行需求抽取器。读取用户对话历史和
   "changedFields": ["destinations", ...]
 }
 
-意图判定规则：
-- 用户说"去 X 玩 N 天"等首次描述行程 → "new"
-- 用户回答之前问过的问题（如"从上海出发"）→ "clarify-answer"
-- 用户在已有行程上说"换酒店"、"加一天" → "refine"
-- 用户说"继续优化"、"再来一轮" → "continue"
+Intent classification rules:
+- User describes a trip for the first time ("go to X for N days") → "new"
+- User answers a previous clarifying question ("departing from Shanghai") → "clarify-answer"
+- User modifies an existing plan ("change the hotel", "add one more day") → "refine"
+- User asks to continue optimizing ("keep refining", "try again") → "continue"
 
-合并规则：保留 existingBrief 里 user 没改的字段；user 改的字段以新值覆盖。`
+Merge rules: preserve unchanged fields from existingBrief; overwrite only the fields the user explicitly changed.`
 
 export async function extractBrief(
   messages: Message[],

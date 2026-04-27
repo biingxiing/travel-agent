@@ -29,6 +29,8 @@ export const SessionStateSchema = z.object({
   iterationCount: z.number().int().nonnegative().default(0),
   lastRunId: z.string().nullable().default(null),
   pendingClarification: z.string().nullable().default(null),
+  prefetchContext: z.array(z.string()).default([]),  // new
+  language: z.string().default('zh'),                // new
   createdAt: z.number(),
   updatedAt: z.number(),
 })

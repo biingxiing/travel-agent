@@ -11,7 +11,10 @@ import type { ChatStreamEvent } from '@travel-agent/shared'
 export const sessionsRouter = new Hono()
 sessionsRouter.use('*', authMiddleware)
 
-const SendMessageSchema = z.object({ content: z.string().min(1) })
+const SendMessageSchema = z.object({
+  content: z.string().min(1),
+  language: z.string().optional(),
+})
 
 function getUserId(c: any): string {
   const id = c.get('userId') as string | undefined
@@ -51,13 +54,18 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
   const session = await sessionStore.get(id, userId)
   if (!session) return c.json({ error: 'Session not found' }, 404)
 
-  const { content } = c.req.valid('json')
+  const { content, language } = c.req.valid('json')
   await sessionStore.appendMessage(id, { role: 'user', content, timestamp: Date.now() })
   const runId = await sessionStore.updateRunId(id)
   if (!runId) return c.json({ error: 'Session vanished' }, 500)
 
   const fresh = await sessionStore.get(id, userId)
   if (!fresh) return c.json({ error: 'Session vanished' }, 500)
+
+  // Store language preference on session (set once; subsequent messages inherit)
+  if (language && !fresh.language) {
+    fresh.language = language
+  }
 
   return streamSSE(c, async (stream) => {
     const send = async (e: ChatStreamEvent) => {

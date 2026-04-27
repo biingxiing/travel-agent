@@ -47,4 +47,31 @@ describe('generator.runRefine', () => {
     expect(out.dailyPlans[0].items).toHaveLength(1)
     expect(out.dailyPlans[0].items[0].title).toBe('CA1234')
   })
+
+  it('runRefine accepts prefetchContext instead of messages', async () => {
+    const newPlan: Plan = {
+      title: 't', destinations: ['Beijing'], days: 1, travelers: 1, pace: 'balanced',
+      preferences: [], dailyPlans: [{ day: 1, items: [
+        { type: 'transport', title: 'CA1234' },
+      ] }], tips: [], disclaimer: 'x',
+    }
+    createMock.mockResolvedValueOnce({
+      choices: [{ message: { content: '```json\n' + JSON.stringify(newPlan) + '\n```', tool_calls: [] } }],
+    })
+    const mockPlan: Plan = { ...newPlan, dailyPlans: [{ day: 1, items: [] }] }
+    const mockReport: EvaluationReport = {
+      combined: { overall: 70, transport: 70, lodging: 70, attraction: 70 },
+      itemIssues: [], globalIssues: [], blockers: [], converged: false,
+      ruleScore: {} as any, llmScore: 70,
+    }
+    const mockBrief: TripBrief = {
+      destinations: ['Beijing'], days: 3, travelers: 1,
+      preferences: [], originCity: null, pace: 'balanced',
+      budget: null, travelDates: null, notes: null,
+    }
+
+    // Should not throw — no messages param
+    const result = await runRefine(mockPlan, mockReport, mockBrief, ['prefetch data'])
+    expect(result).toBeDefined()
+  })
 })

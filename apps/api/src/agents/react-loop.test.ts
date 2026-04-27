@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('./extractor.js', () => ({ extractBrief: vi.fn() }))
 vi.mock('./evaluator.js', () => ({ evaluate: vi.fn() }))
@@ -57,12 +57,18 @@ async function collect(gen: AsyncGenerator<any>) {
 }
 
 describe('runReactLoop', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   function baseSession(): SessionState {
     return {
       id: 's1', userId: 'u1', title: null, brief: null,
       messages: [{ role: 'user', content: '北京 3 天', timestamp: 1 }],
       currentPlan: null, currentScore: null, status: 'draft',
       iterationCount: 0, lastRunId: 'r1', pendingClarification: null,
+      prefetchContext: [],   // new field
+      language: 'zh',        // new field
       createdAt: 1, updatedAt: 1,
     }
   }
@@ -126,5 +132,51 @@ describe('runReactLoop', () => {
     expect(events.find((e: any) => e.type === 'plan')).toBeDefined()
     // After mismatch, refine should NOT run; max_iter_reached should NOT emit
     expect(events.find((e: any) => e.type === 'max_iter_reached')).toBeUndefined()
+  })
+
+  it('runs evaluate then single refine when score is low', async () => {
+    ;(extractBrief as any).mockResolvedValue({
+      brief: { destinations: ['Beijing'], days: 3, travelers: 1, preferences: [], travelDates: { start: '2025-01-01', end: '2025-01-04' } },
+      intent: 'new', changedFields: [],
+    })
+    ;(runInitial as any).mockImplementation(async function* () {
+      yield { type: 'plan', plan: samplePlan }
+      yield { type: 'done', messageId: 'msg1' }
+      return samplePlan
+    })
+    ;(evaluate as any)
+      .mockResolvedValueOnce(emptyReport(false))  // first eval: not converged
+      .mockResolvedValueOnce(emptyReport(true))   // second eval: converged
+    ;(runRefine as any).mockResolvedValue(samplePlan)
+
+    const session = baseSession()
+    const events = await collect(runReactLoop(session, 'r1'))
+
+    // runRefine called exactly once
+    expect(runRefine).toHaveBeenCalledTimes(1)
+    // evaluate called twice (initial + after refine)
+    expect(evaluate).toHaveBeenCalledTimes(2)
+    // ends with done event
+    expect(events.some((e) => e.type === 'done')).toBe(true)
+  })
+
+  it('emits max_iter_reached if still not converged after single refine', async () => {
+    ;(extractBrief as any).mockResolvedValue({
+      brief: { destinations: ['Beijing'], days: 3, travelers: 1, preferences: [], travelDates: { start: '2025-01-01', end: '2025-01-04' } },
+      intent: 'new', changedFields: [],
+    })
+    ;(runInitial as any).mockImplementation(async function* () {
+      yield { type: 'plan', plan: samplePlan }
+      yield { type: 'done', messageId: 'msg1' }
+      return samplePlan
+    })
+    ;(evaluate as any).mockResolvedValue(emptyReport(false))  // never converges
+    ;(runRefine as any).mockResolvedValue(samplePlan)
+
+    const session = baseSession()
+    const events = await collect(runReactLoop(session, 'r1'))
+
+    expect(events.some((e) => e.type === 'max_iter_reached')).toBe(true)
+    expect(runRefine).toHaveBeenCalledTimes(1)
   })
 })
