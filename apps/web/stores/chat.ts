@@ -130,6 +130,19 @@ export const useChatStore = defineStore("chat", {
     canContinue: false
   }),
   actions: {
+    resetTransientState() {
+      this.iteration = 0
+      this.maxIterations = 10
+      this.displayScore = null
+      this.loopStatus = null
+      this.awaitingClarify = null
+      this.maxIterReached = null
+      this.canContinue = false
+      this.streamSteps = []
+      this.errorMessage = ''
+      this.currentMessageId = ''
+      this.pendingAssistantText = ''
+    },
     persistState() {
       persistChatState({
         sessionId: this.sessionId,
@@ -171,19 +184,16 @@ export const useChatStore = defineStore("chat", {
     hydrateFromSessionMessages(messages: Message[]) {
       const history: ChatMessage[] = messages
         .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0)
-        .map((m) => ({
-          id: `${m.role}-${m.timestamp}`,
+        .map((m, i) => ({
+          id: `${m.role}-${m.timestamp}-${i}`,
           role: m.role as Role,
           content: m.content,
         }))
+      this.resetTransientState()
       this.phase = history.length > 0 ? 'result' : 'idle'
       this.agentStatus = history.length > 0 ? '上次行程已加载' : '准备开始'
-      this.streamSteps = []
-      this.errorMessage = ''
       this.plan = null
       this.pendingSelections = []
-      this.currentMessageId = ''
-      this.pendingAssistantText = ''
       this.draft = ''
       this.messages = history.length > 0 ? [welcomeMessage, ...history] : [welcomeMessage]
       this.persistState()
@@ -194,10 +204,8 @@ export const useChatStore = defineStore("chat", {
     },
     beginPlanning(content: string) {
       this.phase = "planning"
-      this.errorMessage = ""
+      this.resetTransientState()
       this.agentStatus = planningMessages.thinking
-      this.streamSteps = []
-      this.pendingAssistantText = ""
       this.pendingSelections = []
       this.messages.push({
         id: `user-${Date.now()}`,
@@ -381,6 +389,10 @@ export const useChatStore = defineStore("chat", {
         item.estimatedCost = option.patch.estimatedCost
       }
 
+      // Keep workspace store in sync (single source of truth for rendered plan)
+      const ws = useWorkspaceStore()
+      ws.currentPlan = this.plan
+
       this.pendingSelections = this.pendingSelections.filter(
         (selection) => !(selection.dayNum === dayNum && selection.itemIndex === itemIndex),
       )
@@ -388,14 +400,11 @@ export const useChatStore = defineStore("chat", {
       this.persistState()
     },
     resetConversation() {
+      this.resetTransientState()
       this.phase = "idle"
       this.agentStatus = "准备开始"
-      this.streamSteps = []
-      this.errorMessage = ""
       this.plan = null
       this.pendingSelections = []
-      this.currentMessageId = ""
-      this.pendingAssistantText = ""
       this.messages = [welcomeMessage]
       this.sessionId = ""
       this.draft = ""

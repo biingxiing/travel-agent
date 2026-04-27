@@ -9,7 +9,7 @@ export interface ChatStreamHandlers {
 
 export interface ChatStreamSession {
   ensureSessionId: () => Promise<string>
-  sendMessage: (content: string, handlers: ChatStreamHandlers) => Promise<void>
+  sendMessage: (content: string, handlers: ChatStreamHandlers, language?: string) => Promise<void>
   continueOptimization: (handlers: ChatStreamHandlers) => Promise<void>
   setSessionId: (id: string | null) => void
   getSessionId: () => string | null
@@ -68,13 +68,13 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
     } catch (err) { handlers.onError?.(err) }
   }
 
-  async function sendMessage(content: string, handlers: ChatStreamHandlers) {
+  async function sendMessage(content: string, handlers: ChatStreamHandlers, language = 'zh') {
     const id = await ensureSessionId()
     const apiBase = resolveApiBase()
     await streamRequest(`${apiBase}/api/sessions/${id}/messages`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, language }),
     }, handlers)
   }
 

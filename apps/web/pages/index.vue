@@ -323,6 +323,7 @@ async function onContinue() {
 async function loadHistoryEntry(entry: TripHistoryEntry) {
   try {
     const { session } = await stream.loadSession(entry.sessionId)
+    stream.setSessionId(session.id)              // explicit — don't rely on loadSession side-effect
     workspaceStore.hydrateFromSession(session)
     workspaceStore.persistState()
     chatStore.hydrateFromSessionMessages(session.messages)
