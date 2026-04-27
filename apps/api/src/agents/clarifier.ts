@@ -1,4 +1,5 @@
-import { llm, FAST_MODEL } from '../llm/client.js'
+import { FAST_MODEL } from '../llm/client.js'
+import { loggedCompletion } from '../llm/logger.js'
 import type { TripBrief, Message } from '@travel-agent/shared'
 
 type ClarifyReason = 'missing_destination' | 'missing_days' | 'missing_dates'
@@ -66,9 +67,12 @@ export async function generateClarification(
   const fallback = getFallback(reason, language)
   let question: string = fallback.question
   try {
-    const resp = await llm.chat.completions.create({
+    const resp = await loggedCompletion('clarifier', {
       model: FAST_MODEL,
-      messages: [{ role: 'system', content: systemPrompt }],
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: 'Generate the clarification question.' },
+      ],
       temperature: 0.7,
       max_tokens: 60,
     })

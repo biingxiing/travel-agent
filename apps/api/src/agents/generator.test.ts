@@ -19,6 +19,11 @@ vi.mock('../registry/skill-registry.js', () => ({
 import { runRefine } from './generator.js'
 import type { Plan, EvaluationReport, TripBrief } from '@travel-agent/shared'
 
+async function* streamContent(content: string) {
+  yield { choices: [{ delta: { content }, finish_reason: null }] }
+  yield { choices: [{ delta: {}, finish_reason: 'stop' }], usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 } }
+}
+
 describe('generator.runRefine', () => {
   it('returns improved plan from JSON output', async () => {
     const newPlan: Plan = {
@@ -27,9 +32,7 @@ describe('generator.runRefine', () => {
         { type: 'transport', title: 'CA1234' },
       ] }], tips: [], disclaimer: 'x',
     }
-    createMock.mockResolvedValueOnce({
-      choices: [{ message: { content: '```json\n' + JSON.stringify(newPlan) + '\n```', tool_calls: [] } }],
-    })
+    createMock.mockResolvedValueOnce(streamContent('```json\n' + JSON.stringify(newPlan) + '\n```'))
     const original: Plan = { ...newPlan, dailyPlans: [{ day: 1, items: [] }] }
     const report: EvaluationReport = {
       ruleScore: { overall: 0, grade: 'poor', transport: { score: 0, count: 0, items: [], grade: 'poor' },
@@ -55,9 +58,7 @@ describe('generator.runRefine', () => {
         { type: 'transport', title: 'CA1234' },
       ] }], tips: [], disclaimer: 'x',
     }
-    createMock.mockResolvedValueOnce({
-      choices: [{ message: { content: '```json\n' + JSON.stringify(newPlan) + '\n```', tool_calls: [] } }],
-    })
+    createMock.mockResolvedValueOnce(streamContent('```json\n' + JSON.stringify(newPlan) + '\n```'))
     const mockPlan: Plan = { ...newPlan, dailyPlans: [{ day: 1, items: [] }] }
     const mockReport: EvaluationReport = {
       combined: { overall: 70, transport: 70, lodging: 70, attraction: 70 },

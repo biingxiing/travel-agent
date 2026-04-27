@@ -87,6 +87,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Working Guidelines
 
+- **Always use `stream: true` for every LLM call.** The configured LLM backend (Sub2API) has a server-side bug where `stream: false` returns `{"role":"assistant"}` with no `content`. Buffer the SSE delta chunks on the client side instead of relying on a non-streaming response. Never pass `stream: false` to `llm.chat.completions.create`. Also: `response_format` is silently dropped by this backend — enforce JSON output via system prompt constraints, not `response_format`.
 - Prefer targeted changes inside the relevant app/package instead of duplicating types locally.
 - If you change API payloads or planner output shape, update `packages/shared` and both consumers in the same change.
 - Preserve SSE compatibility unless the frontend is updated at the same time.

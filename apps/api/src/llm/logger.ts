@@ -23,6 +23,8 @@ function getCtx(): SessionCtx {
   return storage.getStore() ?? { sessionId: null, runId: null }
 }
 
+const VERBOSE = process.env.LLM_VERBOSE === 'true'
+
 const MAX_REQUEST_BYTES = 256 * 1024
 
 function truncateRequest(req: unknown): unknown {
@@ -65,22 +67,57 @@ export async function loggedCompletion(
 ): Promise<OpenAI.Chat.ChatCompletion> {
   const ctx = getCtx()
   const start = Date.now()
+  let content = ''
+  let finishReason: string | null = null
+  let promptTokens: number | null = null
+  let completionTokens: number | null = null
+  let totalTokens: number | null = null
   try {
-    const resp = await llm.chat.completions.create(params)
-    const ms = Date.now() - start
-    const u = resp.usage
-    logLine(agent, params.model, ms, ctx, true, {
-      prompt: u?.prompt_tokens, completion: u?.completion_tokens, total: u?.total_tokens,
+    const stream = await llm.chat.completions.create({
+      ...params,
+      stream: true,
+      stream_options: { include_usage: true },
     })
+    for await (const chunk of stream) {
+      content += chunk.choices[0]?.delta?.content ?? ''
+      finishReason = chunk.choices[0]?.finish_reason ?? finishReason
+      if (chunk.usage) {
+        promptTokens = chunk.usage.prompt_tokens ?? null
+        completionTokens = chunk.usage.completion_tokens ?? null
+        totalTokens = chunk.usage.total_tokens ?? null
+      }
+    }
+    const ms = Date.now() - start
+    logLine(agent, params.model, ms, ctx, true, { prompt: promptTokens, completion: completionTokens, total: totalTokens })
+    if (VERBOSE) {
+      console.log(`[llm:input] agent=${agent}\n${JSON.stringify(params.messages, null, 2)}`)
+      console.log(`[llm:output] agent=${agent}\n${content}`)
+    }
     void insertLLMCall({
       id: randomUUID(), sessionId: ctx.sessionId, runId: ctx.runId,
-      agent, model: params.model, stream: false,
+      agent, model: params.model, stream: true,
       request: truncateRequest(params),
-      response: { content: resp.choices[0]?.message?.content ?? '', finish_reason: resp.choices[0]?.finish_reason ?? null },
-      promptTokens: u?.prompt_tokens ?? null, completionTokens: u?.completion_tokens ?? null, totalTokens: u?.total_tokens ?? null,
+      response: { content, finish_reason: finishReason ?? 'stop' },
+      promptTokens, completionTokens, totalTokens,
       latencyMs: ms, ok: true, errorMessage: null, errorCode: null,
     }).catch((e) => console.warn('[llm-logger] DB write failed:', e instanceof Error ? e.message : e))
-    return resp
+    return {
+      id: '',
+      object: 'chat.completion',
+      created: Math.floor(start / 1000),
+      model: params.model,
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content },
+        finish_reason: (finishReason ?? 'stop') as OpenAI.Chat.ChatCompletion.Choice['finish_reason'],
+        logprobs: null,
+      }],
+      usage: promptTokens != null ? {
+        prompt_tokens: promptTokens,
+        completion_tokens: completionTokens ?? 0,
+        total_tokens: totalTokens ?? 0,
+      } : undefined,
+    }
   } catch (err) {
     const ms = Date.now() - start
     const msg = err instanceof Error ? err.message : String(err)
@@ -88,7 +125,7 @@ export async function loggedCompletion(
     logLine(agent, params.model, ms, ctx, false, {}, msg)
     void insertLLMCall({
       id: randomUUID(), sessionId: ctx.sessionId, runId: ctx.runId,
-      agent, model: params.model, stream: false,
+      agent, model: params.model, stream: true,
       request: truncateRequest(params), response: null,
       promptTokens: null, completionTokens: null, totalTokens: null,
       latencyMs: ms, ok: false, errorMessage: msg, errorCode: code,
@@ -135,6 +172,10 @@ export async function* loggedStream(
   } finally {
     const ms = Date.now() - start
     logLine(agent, params.model, ms, ctx, ok, { prompt: promptTokens, completion: completionTokens, total: totalTokens }, errorMsg ?? undefined)
+    if (VERBOSE) {
+      console.log(`[llm:input] agent=${agent}\n${JSON.stringify(params.messages, null, 2)}`)
+      if (ok) console.log(`[llm:output] agent=${agent}\n${content}`)
+    }
     void insertLLMCall({
       id: randomUUID(), sessionId: ctx.sessionId, runId: ctx.runId,
       agent, model: params.model, stream: true,

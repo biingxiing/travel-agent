@@ -17,13 +17,16 @@ import { loggedCompletion, loggedStream, withSessionContext } from './logger.js'
 
 beforeEach(() => vi.clearAllMocks())
 
+async function* singleChunk(content: string) {
+  yield {
+    choices: [{ delta: { content }, finish_reason: 'stop' }],
+    usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
+  }
+}
+
 describe('loggedCompletion', () => {
-  it('returns the response and records the call', async () => {
-    const mockResp = {
-      choices: [{ message: { content: 'answer', role: 'assistant' }, finish_reason: 'stop' }],
-      usage: { prompt_tokens: 100, completion_tokens: 50, total_tokens: 150 },
-    }
-    ;(llm.chat.completions.create as any).mockResolvedValue(mockResp)
+  it('returns assembled content and records the call', async () => {
+    ;(llm.chat.completions.create as any).mockReturnValue(singleChunk('answer'))
 
     const result = await withSessionContext('sess-abc', 'run-123', () =>
       loggedCompletion('extractor', {
@@ -33,12 +36,12 @@ describe('loggedCompletion', () => {
       }),
     )
 
-    expect(result).toBe(mockResp)
+    expect(result.choices[0].message.content).toBe('answer')
     expect(insertLLMCall).toHaveBeenCalledWith(
       expect.objectContaining({
         agent: 'extractor',
         model: 'fake-fast',
-        stream: false,
+        stream: true,
         ok: true,
         promptTokens: 100,
         completionTokens: 50,
