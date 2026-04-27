@@ -117,6 +117,7 @@ export const useChatStore = defineStore("chat", {
     errorMessage: "",
     currentMessageId: "",
     pendingAssistantText: "",
+    reasoningText: "",
     messages: [welcomeMessage] as ChatMessage[],
     plan: null as Plan | null,
     pendingSelections: [] as ItemSelection[],
@@ -142,6 +143,7 @@ export const useChatStore = defineStore("chat", {
       this.errorMessage = ''
       this.currentMessageId = ''
       this.pendingAssistantText = ''
+      this.reasoningText = ''
     },
     persistState() {
       persistChatState({
@@ -255,6 +257,9 @@ export const useChatStore = defineStore("chat", {
         case 'token':
           this.pendingAssistantText += event.delta
           this.setAssistantContent(this.pendingAssistantText)
+          break
+        case 'tool_reasoning':
+          this.reasoningText += event.delta
           break
         case 'plan_partial':
           if (event.plan) {
