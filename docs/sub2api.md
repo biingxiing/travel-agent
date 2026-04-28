@@ -65,10 +65,20 @@ Responses API 也不支持该参数，参数会被静默丢弃。
 | streaming (`stream: true`) | ✅ 正常 | 必须用这个 |
 | tools / function calling | ✅ 正常 | tool_calls 通过 SSE delta 返回 |
 | system prompt | ✅ 正常 | |
-| temperature | ✅ 正常 | |
-| stream_options.include_usage | ✅ 正常 | 用量在最后一个 chunk 返回 |
+| `temperature` | ✅ 正常 | 范围 0.0–2.0 |
+| `max_tokens` | ✅ 正常 | 生效截断输出；`finish_reason` 固定返回 `stop`（而非 `length`） |
+| `top_p` | ✅ 正常 | 正常透传，与 temperature 联合控制采样 |
+| `user` | ✅ 透传 | 不报错，代理原样转发，无可见效果 |
+| `stream_options.include_usage` | ✅ 正常 | 用量在最后一个 chunk 返回 |
 | non-streaming (`stream: false`) | ❌ Bug | content 字段缺失 |
-| `response_format` | ❌ 无效 | 被静默丢弃 |
+| `response_format` | ❌ 无效 | 被静默丢弃，改用 system prompt 约束 |
+| `stop` | ❌ 无效 | 停止序列被静默忽略 |
+| `frequency_penalty` | ❌ 无效 | 被静默忽略，Responses API 不支持此参数 |
+| `presence_penalty` | ❌ 无效 | 被静默忽略，Responses API 不支持此参数 |
+| `n` | ❌ 无效 | 始终只返回 1 个候选，多候选不支持 |
+| `seed` | ❌ 无效 | 被静默忽略，相同 seed 不保证相同输出 |
+| `logprobs` / `top_logprobs` | ❌ 无效 | 响应中不含 logprobs 字段 |
+| `max_completion_tokens` | ❌ 无效 | 新版 API 字段，代理不识别，被忽略 |
 | 大多数其他模型 | ❌ 无权限 | 仅 gpt-5.4 可用 |
 
 ---
@@ -189,8 +199,45 @@ LLM_MODEL_FAST=gpt-5.4
 
 ---
 
+## 完整字段参考（Chat Completions 接口）
+
+> 基于实测验证（2026-04-28），✅ = 正常生效，⚠️ = 接受但无明显效果，❌ = 无效/静默丢弃
+
+| 字段 | 类型 | 枚举值 / 范围 | 状态 | 备注 |
+|------|------|--------------|------|------|
+| `model` | string | `gpt-5.4` \| `gpt-5.4-2026-03-05` | ✅ | 其他模型报权限错误 |
+| `messages` | array | — | ✅ | |
+| `messages[].role` | string | `system` \| `user` \| `assistant` \| `tool` | ✅ | |
+| `messages[].content` | string | — | ✅ | |
+| `messages[].tool_call_id` | string | — | ✅ | role=`tool` 时必填 |
+| `messages[].tool_calls` | array | — | ✅ | role=`assistant` 时模型发起的调用 |
+| `stream` | boolean | 只能 `true` | ✅ | `false` 有 bug |
+| `stream_options.include_usage` | boolean | `true` \| `false` | ✅ | 最后一个 chunk 返回用量 |
+| `temperature` | float | `0.0` – `2.0` | ✅ | |
+| `max_tokens` | integer | `1` – 模型上限 | ✅ | 生效；但 `finish_reason` 固定返回 `stop` |
+| `top_p` | float | `0.0` – `1.0` | ✅ | 正常透传 |
+| `tools` | array | — | ✅ | |
+| `tools[].type` | string | `function` | ✅ | 目前仅支持 `function` |
+| `tools[].function.name` | string | — | ✅ | |
+| `tools[].function.description` | string | — | ✅ | |
+| `tools[].function.parameters` | object | JSON Schema | ✅ | |
+| `tool_choice` | string \| object | `"none"` \| `"auto"` \| `"required"` \| `{"type":"function","function":{"name":"fn"}}` | ✅ | |
+| `user` | string | — | ⚠️ | 不报错，无可见效果 |
+| `stop` | string \| array | — | ❌ | 静默忽略 |
+| `frequency_penalty` | float | `-2.0` – `2.0` | ❌ | Responses API 不支持，静默丢弃 |
+| `presence_penalty` | float | `-2.0` – `2.0` | ❌ | Responses API 不支持，静默丢弃 |
+| `n` | integer | `1`（仅有效值） | ❌ | 始终返回 1 个候选 |
+| `seed` | integer | — | ❌ | 静默忽略，不保证复现 |
+| `logprobs` | boolean | `true` \| `false` | ❌ | 响应中不含该字段 |
+| `top_logprobs` | integer | `0` – `20` | ❌ | 同上 |
+| `max_completion_tokens` | integer | — | ❌ | 新版字段，代理不识别 |
+| `response_format` | object | — | ❌ | 静默丢弃，用 system prompt 代替 |
+
+---
+
 ## 调试 Tips
 
 - 查看原始 SSE 流：`curl -N ... | cat`
 - 验证某个模型是否可用：发一条简短消息，看是否返回 `"error"` 字段
 - `completion_tokens > 0` 但 `content` 为空 → 触发了 `stream: false` bug，改用 `stream: true`
+- `finish_reason` 始终为 `stop`，即使是 `max_tokens` 截断也是如此（代理行为）

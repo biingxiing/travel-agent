@@ -5,7 +5,7 @@ import { prefetchFlyaiContext } from '../prefetch.js'
 
 export const prefetchContextTool: SubagentTool = {
   name: 'call_prefetch',
-  description: 'Fetch real-world flight, hotel, and POI data for the given TripBrief. Returns a summary of how many context entries were fetched. Pass session.prefetchContext when calling call_generator.',
+  description: 'Fetch real-world flight, train, hotel, and POI data for the TripBrief. Always call before call_generator — never skip this on a first-time plan. On continuation turns, only call again if intent is "new" (user wants a completely fresh itinerary); otherwise reuse the already-fetched context. The fetched data is stored in the session and must be passed to call_generator.',
   parametersSchema: {
     type: 'object',
     properties: {

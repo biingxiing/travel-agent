@@ -5,7 +5,7 @@ import { evaluate } from '../evaluator.js'
 
 export const evaluatePlanTool: SubagentTool = {
   name: 'call_evaluator',
-  description: 'Score the current travel plan. Returns an EvaluationReport with {combined: {overall, transport, lodging, attraction}, blockers, itemIssues, converged}. Call after call_generator or call_refiner.',
+  description: 'Score the travel plan and return an EvaluationReport with {combined: {overall, transport, lodging, attraction}, blockers, itemIssues, converged}. Call after call_generator or call_refiner. Act on the result: converged=true → stop and write confirmation; blockers exist → call call_clarifier; score below threshold → call call_refiner if not yet called this run, otherwise stop. Call at most twice per run.',
   parametersSchema: {
     type: 'object',
     properties: {

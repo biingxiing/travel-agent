@@ -5,7 +5,7 @@ import { runRefine } from '../generator.js'
 
 export const refinePlanTool: SubagentTool = {
   name: 'call_refiner',
-  description: 'Fix issues in the current plan identified by call_evaluator. Takes the plan, brief, evaluation report, and prefetch context. Returns the refined plan JSON.',
+  description: 'Fix specific issues in the current itinerary identified by call_evaluator. Call at most once per run, only when the evaluation score is below threshold and no blockers are present. After refining, always call call_evaluator once more to get the updated score. Returns the repaired itinerary JSON.',
   parametersSchema: {
     type: 'object',
     properties: {

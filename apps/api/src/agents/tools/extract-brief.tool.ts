@@ -5,7 +5,7 @@ import { extractBrief } from '../extractor.js'
 
 export const extractBriefTool: SubagentTool = {
   name: 'call_extractor',
-  description: 'Parse user messages into a structured TripBrief. Call this first to understand the trip request. Returns JSON with {brief, intent, changedFields}.',
+  description: 'Call first on every turn before doing anything else. Parses all user messages into a structured TripBrief (destination, days, origin, dates, budget, travelers, preferences) and infers intent. Returns {brief, intent, changedFields}. Use intent to decide what to call next: "new" → call call_prefetch to start fresh; "refine" or "continue" → call call_refiner with the existing plan; "clarify-answer" → call call_evaluator to re-check the current plan.',
   parametersSchema: {
     type: 'object',
     properties: {

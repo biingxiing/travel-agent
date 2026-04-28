@@ -7,7 +7,7 @@ type ClarifyReason = 'missing_destination' | 'missing_days' | 'missing_dates'
 
 export const askClarificationTool: SubagentTool = {
   name: 'call_clarifier',
-  description: 'Ask the user for missing trip information. Emits a clarify_needed event and HALTS the planning loop. Only call when destination, days, or dates are missing and cannot be inferred.',
+  description: 'Ask the traveler a single warm clarifying question when destination, days, or dates are missing and cannot be inferred from context. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message.',
   parametersSchema: {
     type: 'object',
     properties: {

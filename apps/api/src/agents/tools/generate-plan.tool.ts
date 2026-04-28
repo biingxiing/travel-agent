@@ -5,7 +5,7 @@ import { runInitial } from '../generator.js'
 
 export const generatePlanTool: SubagentTool = {
   name: 'call_generator',
-  description: 'Generate an initial travel itinerary. Requires brief and prefetchContext. Streams plan tokens to the client as it runs. Returns the complete plan JSON.',
+  description: 'Create the initial multi-day travel itinerary from the TripBrief and real-world prefetch data. Only for first-time plan creation — to fix an existing plan use call_refiner instead. Requires call_prefetch to have run first in this turn. Streams the itinerary to the client as it generates. After this, call call_evaluator to score the result.',
   parametersSchema: {
     type: 'object',
     properties: {
