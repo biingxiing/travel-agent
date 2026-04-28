@@ -24,6 +24,13 @@ const FALLBACKS: Record<ClarifyReason, Record<string, ClarifyResult>> = {
   },
 }
 
+const SYSTEM_PROMPT_CLARIFIER = `You are a travel planning assistant. Ask the user about a missing field of their trip plan.
+Constraints:
+- One warm, conversational sentence, max 20 words
+- Do NOT repeat information the user already provided
+- Output only the question, no preamble or explanation
+- Write the question in the requested output language`
+
 function getFallback(reason: ClarifyReason, language: string): ClarifyResult {
   return FALLBACKS[reason][language] ?? FALLBACKS[reason]['zh']
 }
@@ -38,7 +45,8 @@ function defaultStartDate(): string {
   return formatDate(d)
 }
 
-function briefSummary(brief: Partial<TripBrief>): string {
+function briefSummary(brief: Partial<TripBrief> | undefined): string {
+  if (!brief) return 'none'
   const parts: string[] = []
   if (brief.destinations?.length) parts.push(`destinations: ${brief.destinations.join(', ')}`)
   if (brief.days) parts.push(`${brief.days} days`)
@@ -49,7 +57,7 @@ function briefSummary(brief: Partial<TripBrief>): string {
 
 export async function generateClarification(
   messages: Message[],
-  brief: Partial<TripBrief>,
+  brief: Partial<TripBrief> | undefined,
   reason: ClarifyReason,
   language = 'zh',
 ): Promise<ClarifyResult> {
@@ -57,12 +65,11 @@ export async function generateClarification(
     reason === 'missing_destination' ? 'travel destination' :
     reason === 'missing_days' ? 'number of travel days' : 'departure date'
 
-  const systemPrompt =
-    `You are a travel planning assistant. Known trip info: ${briefSummary(brief)}. ` +
-    `Missing field: ${fieldLabel}. ` +
-    `Ask for this field in a warm, conversational single sentence (max 20 words). ` +
-    `Do not repeat information the user already provided. Output only the question. ` +
-    `IMPORTANT: Write the question in this language: ${language}.`
+  const userMessage =
+    `Known trip info: ${briefSummary(brief)}\n` +
+    `Missing field: ${fieldLabel}\n` +
+    `Output language: ${language}\n` +
+    `Generate the clarification question.`
 
   const fallback = getFallback(reason, language)
   let question: string = fallback.question
@@ -70,8 +77,8 @@ export async function generateClarification(
     const resp = await loggedCompletion('clarifier', {
       model: FAST_MODEL,
       messages: [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: 'Generate the clarification question.' },
+        { role: 'system', content: SYSTEM_PROMPT_CLARIFIER },
+        { role: 'user', content: userMessage },
       ],
       temperature: 0.7,
       max_tokens: 60,

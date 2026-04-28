@@ -4,6 +4,7 @@ vi.mock('../llm/client.js', () => ({
   llm: { chat: { completions: { create: vi.fn() } } },
   FAST_MODEL: 'fake-fast',
   PLANNER_MODEL: 'fake-plan',
+  REASONING_EFFORT: undefined,
 }))
 
 vi.mock('../persistence/pg.js', () => ({
