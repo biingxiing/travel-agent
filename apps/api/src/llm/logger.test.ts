@@ -1,9 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const mockState = vi.hoisted(() => ({ reasoningEffort: undefined as string | undefined }))
+
 vi.mock('../llm/client.js', () => ({
   llm: { chat: { completions: { create: vi.fn() } } },
   FAST_MODEL: 'fake-fast',
   PLANNER_MODEL: 'fake-plan',
+  get REASONING_EFFORT() {
+    return mockState.reasoningEffort
+  },
 }))
 
 vi.mock('../persistence/pg.js', () => ({
@@ -15,7 +20,10 @@ import { llm } from '../llm/client.js'
 import { insertLLMCall } from '../persistence/pg.js'
 import { loggedCompletion, loggedStream, withSessionContext } from './logger.js'
 
-beforeEach(() => vi.clearAllMocks())
+beforeEach(() => {
+  vi.clearAllMocks()
+  mockState.reasoningEffort = undefined
+})
 
 async function* singleChunk(content: string) {
   yield {
@@ -73,6 +81,173 @@ describe('loggedCompletion', () => {
         errorMessage: 'rate_limit',
         errorCode: 'rate_limit_exceeded',
       }),
+    )
+  })
+})
+
+describe('reasoning_effort injection', () => {
+  it('does NOT inject reasoning_effort when env is unset', async () => {
+    ;(llm.chat.completions.create as any).mockReturnValue(singleChunk('ok'))
+
+    await withSessionContext('s', 'r', () =>
+      loggedCompletion('extractor', {
+        model: 'fake-fast',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    )
+
+    const callArgs = (llm.chat.completions.create as any).mock.calls[0][0]
+    expect(callArgs).not.toHaveProperty('reasoning_effort')
+  })
+
+  it('injects reasoning_effort=xhigh in loggedCompletion when env is set', async () => {
+    mockState.reasoningEffort = 'xhigh'
+    ;(llm.chat.completions.create as any).mockReturnValue(singleChunk('ok'))
+
+    await withSessionContext('s', 'r', () =>
+      loggedCompletion('extractor', {
+        model: 'fake-fast',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    )
+
+    const callArgs = (llm.chat.completions.create as any).mock.calls[0][0]
+    expect(callArgs.reasoning_effort).toBe('xhigh')
+    expect(callArgs.stream).toBe(true)
+  })
+
+  it('injects reasoning_effort=xhigh in loggedStream when env is set', async () => {
+    mockState.reasoningEffort = 'xhigh'
+    async function* fake() {
+      yield { choices: [{ delta: { content: 'x' }, finish_reason: 'stop' }], usage: null }
+    }
+    ;(llm.chat.completions.create as any).mockReturnValue(fake())
+
+    await withSessionContext('s', 'r', async () => {
+      for await (const _ of loggedStream('generator', {
+        model: 'fake-plan',
+        messages: [{ role: 'user', content: 'hi' }],
+      })) {
+        void _
+      }
+    })
+
+    const callArgs = (llm.chat.completions.create as any).mock.calls[0][0]
+    expect(callArgs.reasoning_effort).toBe('xhigh')
+  })
+
+  it('caller-provided reasoning_effort overrides env', async () => {
+    mockState.reasoningEffort = 'xhigh'
+    ;(llm.chat.completions.create as any).mockReturnValue(singleChunk('ok'))
+
+    await withSessionContext('s', 'r', () =>
+      loggedCompletion('extractor', {
+        model: 'fake-fast',
+        messages: [{ role: 'user', content: 'hi' }],
+        reasoning_effort: 'low',
+      } as any),
+    )
+
+    const callArgs = (llm.chat.completions.create as any).mock.calls[0][0]
+    expect(callArgs.reasoning_effort).toBe('low')
+  })
+
+  it('logs effort=<value> in the console log line when set', async () => {
+    mockState.reasoningEffort = 'xhigh'
+    ;(llm.chat.completions.create as any).mockReturnValue(singleChunk('ok'))
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await withSessionContext('s', 'r', () =>
+      loggedCompletion('extractor', {
+        model: 'fake-fast',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    )
+
+    const lines = spy.mock.calls.map((args) => String(args[0]))
+    spy.mockRestore()
+    expect(lines.some((l) => l.includes('[llm]') && l.includes('effort=xhigh'))).toBe(true)
+  })
+
+  it('omits effort= when neither env nor caller set it', async () => {
+    ;(llm.chat.completions.create as any).mockReturnValue(singleChunk('ok'))
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await withSessionContext('s', 'r', () =>
+      loggedCompletion('extractor', {
+        model: 'fake-fast',
+        messages: [{ role: 'user', content: 'hi' }],
+      }),
+    )
+
+    const lines = spy.mock.calls.map((args) => String(args[0]))
+    spy.mockRestore()
+    const llmLine = lines.find((l) => l.includes('[llm] agent=extractor'))
+    expect(llmLine).toBeDefined()
+    expect(llmLine).not.toContain('effort=')
+  })
+})
+
+describe('cached_tokens observability', () => {
+  it('logs cached=N and passes cachedTokens to insertLLMCall when chunk has prompt_tokens_details', async () => {
+    async function* fakeStreamWithCache() {
+      yield { choices: [{ delta: { content: 'hi' }, finish_reason: null }], usage: null }
+      yield {
+        choices: [{ delta: { content: '' }, finish_reason: 'stop' }],
+        usage: {
+          prompt_tokens: 100,
+          completion_tokens: 5,
+          total_tokens: 105,
+          prompt_tokens_details: { cached_tokens: 80 },
+        },
+      }
+    }
+    ;(llm.chat.completions.create as any).mockReturnValue(fakeStreamWithCache())
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await withSessionContext('s', 'r', async () => {
+      for await (const _ of loggedStream('generator', {
+        model: 'fake-plan',
+        messages: [{ role: 'user', content: 'plan' }],
+      })) {
+        void _
+      }
+    })
+
+    const lines = spy.mock.calls.map((args) => String(args[0]))
+    spy.mockRestore()
+    expect(lines.some((l) => l.includes('[llm]') && l.includes('cached=80'))).toBe(true)
+    expect(insertLLMCall).toHaveBeenCalledWith(
+      expect.objectContaining({ cachedTokens: 80 }),
+    )
+  })
+
+  it('omits cached= and passes cachedTokens=null when prompt_tokens_details absent', async () => {
+    async function* fakeStreamNoCache() {
+      yield {
+        choices: [{ delta: { content: 'hi' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 100, completion_tokens: 5, total_tokens: 105 },
+      }
+    }
+    ;(llm.chat.completions.create as any).mockReturnValue(fakeStreamNoCache())
+    const spy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    await withSessionContext('s', 'r', async () => {
+      for await (const _ of loggedStream('generator', {
+        model: 'fake-plan',
+        messages: [{ role: 'user', content: 'plan' }],
+      })) {
+        void _
+      }
+    })
+
+    const lines = spy.mock.calls.map((args) => String(args[0]))
+    spy.mockRestore()
+    const llmLine = lines.find((l) => l.includes('[llm] agent=generator'))
+    expect(llmLine).toBeDefined()
+    expect(llmLine).not.toContain('cached=')
+    expect(insertLLMCall).toHaveBeenCalledWith(
+      expect.objectContaining({ cachedTokens: null }),
     )
   })
 })
