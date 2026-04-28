@@ -74,20 +74,22 @@ Intent classification rules:
 - User answers a previous clarifying question ("departing from Shanghai") → "clarify-answer"
 - User modifies an existing plan ("change the hotel", "add one more day") → "refine"
 - User asks to continue optimizing ("keep refining", "try again") → "continue"
+Determine intent from latestMessage only, not from the full message history.
 
-Merge rules: preserve unchanged fields from existingBrief; overwrite only the fields the user explicitly changed.`
+Merge rules: preserve unchanged fields from existingBrief; overwrite only the fields the user explicitly changed. Use allMessages for brief field merging.`
 
 export async function extractBrief(
   messages: Message[],
   existingBrief: TripBrief | null,
 ): Promise<{ brief: TripBrief; intent: ExtractIntent; changedFields: string[] }> {
-  const userInput = messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n---\n')
+  const allUserText = messages.filter((m) => m.role === 'user').map((m) => m.content).join('\n---\n')
+  const latestUserText = messages.filter((m) => m.role === 'user').at(-1)?.content ?? allUserText
 
   const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: SYSTEM_PROMPT },
     {
       role: 'user',
-      content: `existingBrief:\n${JSON.stringify(existingBrief)}\n\nuserMessages:\n${userInput}`,
+      content: `existingBrief:\n${JSON.stringify(existingBrief)}\n\nallMessages:\n${allUserText}\n\nlatestMessage:\n${latestUserText}`,
     },
   ]
 
@@ -110,7 +112,7 @@ export async function extractBrief(
   }
 
   // Always regex-augment from the latest user message — LLM may miss obvious fields
-  const fallback = regexFallback(userInput)
+  const fallback = regexFallback(allUserText)
   const briefCandidate = {
     ...(existingBrief ?? {}),
     ...fallback,           // regex first (might be wrong if LLM was right)

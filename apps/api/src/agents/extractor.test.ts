@@ -43,4 +43,28 @@ describe('extractor', () => {
     )
     expect(res.brief.originCity).toBe('上海')
   })
+
+  it('passes latestMessage separately so intent comes from newest message only', async () => {
+    ;(loggedCompletion as any).mockResolvedValue({
+      choices: [{ message: { content: JSON.stringify({
+        brief: { destinations: ['北京'], days: 4 },
+        intent: 'refine',
+        changedFields: ['days'],
+      })}}],
+    })
+
+    await extractBrief([
+      { role: 'user', content: '我想去北京3天', timestamp: 1 },
+      { role: 'user', content: '改成4天吧', timestamp: 2 },
+    ], { destinations: ['北京'], days: 3, travelers: 1, preferences: [] })
+
+    const callParams = (loggedCompletion as any).mock.calls.at(-1)[1]
+    const userMsgContent: string = callParams.messages[1].content
+    expect(userMsgContent).toContain('allMessages:')
+    expect(userMsgContent).toContain('latestMessage:')
+    // latestMessage should be only the last message
+    const latestSection = userMsgContent.split('latestMessage:')[1]
+    expect(latestSection).toContain('改成4天吧')
+    expect(latestSection).not.toContain('我想去北京3天')
+  })
 })
