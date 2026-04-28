@@ -96,7 +96,7 @@ export async function loggedCompletion(
         promptTokens = chunk.usage.prompt_tokens ?? null
         completionTokens = chunk.usage.completion_tokens ?? null
         totalTokens = chunk.usage.total_tokens ?? null
-        const details = (chunk.usage as Record<string, unknown>).prompt_tokens_details
+        const details = (chunk.usage as unknown as Record<string, unknown>).prompt_tokens_details
         if (details && typeof details === 'object') {
           const c = (details as Record<string, unknown>).cached_tokens
           if (typeof c === 'number' && c > 0) cachedTokens = c
@@ -104,7 +104,7 @@ export async function loggedCompletion(
       }
     }
     const ms = Date.now() - start
-    logLine(agent, params.model, ms, ctx, true, { prompt: promptTokens, completion: completionTokens, total: totalTokens }, cachedTokens, resolveEffort(params as Record<string, unknown>))
+    logLine(agent, params.model, ms, ctx, true, { prompt: promptTokens, completion: completionTokens, total: totalTokens }, cachedTokens, resolveEffort(params as unknown as Record<string, unknown>))
     if (VERBOSE) {
       console.log(`[llm:input] agent=${agent}\n${JSON.stringify(params.messages, null, 2)}`)
       console.log(`[llm:output] agent=${agent}\n${content}`)
@@ -138,7 +138,7 @@ export async function loggedCompletion(
     const ms = Date.now() - start
     const msg = err instanceof Error ? err.message : String(err)
     const code = (err as Record<string, unknown>)?.code as string | null ?? null
-    logLine(agent, params.model, ms, ctx, false, {}, null, resolveEffort(params as Record<string, unknown>), msg)
+    logLine(agent, params.model, ms, ctx, false, {}, null, resolveEffort(params as unknown as Record<string, unknown>), msg)
     void insertLLMCall({
       id: randomUUID(), sessionId: ctx.sessionId, runId: ctx.runId,
       agent, model: params.model, stream: true,
@@ -183,7 +183,7 @@ export async function* loggedStream(
         promptTokens = chunk.usage.prompt_tokens ?? null
         completionTokens = chunk.usage.completion_tokens ?? null
         totalTokens = chunk.usage.total_tokens ?? null
-        const details = (chunk.usage as Record<string, unknown>).prompt_tokens_details
+        const details = (chunk.usage as unknown as Record<string, unknown>).prompt_tokens_details
         if (details && typeof details === 'object') {
           const c = (details as Record<string, unknown>).cached_tokens
           if (typeof c === 'number' && c > 0) cachedTokens = c
@@ -197,10 +197,11 @@ export async function* loggedStream(
     throw err
   } finally {
     const ms = Date.now() - start
-    logLine(agent, params.model, ms, ctx, ok, { prompt: promptTokens, completion: completionTokens, total: totalTokens }, cachedTokens, resolveEffort(params as Record<string, unknown>), errorMsg ?? undefined)
+    logLine(agent, params.model, ms, ctx, ok, { prompt: promptTokens, completion: completionTokens, total: totalTokens }, cachedTokens, resolveEffort(params as unknown as Record<string, unknown>), errorMsg ?? undefined)
     if (VERBOSE) {
-      const tools = Array.isArray((params as Record<string, unknown>).tools)
-        ? (params as Record<string, unknown[]>).tools.map((t: Record<string, unknown>) => {
+      const rawTools = (params as unknown as Record<string, unknown>).tools
+      const tools = Array.isArray(rawTools)
+        ? (rawTools as Record<string, unknown>[]).map((t) => {
             const fn = t.function as Record<string, unknown> | undefined
             return fn?.name ?? t.name
           })
