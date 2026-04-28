@@ -65,6 +65,7 @@ This file provides guidance to Claude Code when working in this repository.
   - `LLM_BASE_URL` / `OPENAI_BASE_URL` — required. A warning is logged for non-localhost plain HTTP.
   - `LLM_MODEL_PLANNER` / `OPENAI_MODEL_PLANNER` — defaults to `gpt-5.4`.
   - `LLM_MODEL_FAST` / `OPENAI_MODEL_FAST` — defaults to `codex-mini-latest`.
+  - `LLM_REASONING_EFFORT` / `OPENAI_REASONING_EFFORT` — optional. Accepts `low` | `medium` | `high` | `xhigh`. When set, `apps/api/src/llm/logger.ts` injects `reasoning_effort` into every `llm.chat.completions.create` call. Caller-passed `reasoning_effort` in params overrides the env. Sub2API forwards it to the upstream Responses API and **gpt-5.4 actually honors it** (verified 2026-04-28: completion_tokens scales monotonically with effort — 5 → 120 → 156 → 216 for none/low/high/xhigh on a 1-character-answer prompt). Hidden reasoning tokens are folded into `completion_tokens`; there is no separate `reasoning_tokens` field.
   - `AUTH_USERNAME`, `AUTH_PASSWORD`, `AUTH_COOKIE_SECRET` (≥16 chars) — required; the API throws on startup if missing.
   - `AUTH_COOKIE_NAME` — defaults to `travel_agent_auth`.
   - `PORT` / `API_PORT` for the API; `API_BIND_HOST` for the bind address.
@@ -88,6 +89,7 @@ This file provides guidance to Claude Code when working in this repository.
 ## Working Guidelines
 
 - **Always use `stream: true` for every LLM call.** The configured LLM backend (Sub2API) has a server-side bug where `stream: false` returns `{"role":"assistant"}` with no `content`. Buffer the SSE delta chunks on the client side instead of relying on a non-streaming response. Never pass `stream: false` to `llm.chat.completions.create`. Also: `response_format` is silently dropped by this backend — enforce JSON output via system prompt constraints, not `response_format`.
+- **LLM cache invariant**: Every agent's first message (`messages[0]`) must be a static `const` string with no runtime interpolation. Dynamic trip data, user state, and session context belong in subsequent `user` or `system` messages. Violating this prevents OpenAI prefix cache hits.
 - Prefer targeted changes inside the relevant app/package instead of duplicating types locally.
 - If you change API payloads or planner output shape, update `packages/shared` and both consumers in the same change.
 - Preserve SSE compatibility unless the frontend is updated at the same time.
