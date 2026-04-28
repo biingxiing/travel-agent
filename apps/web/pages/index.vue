@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from "pinia"
-import { ChevronDown, History, LogOut, Settings, User } from "lucide-vue-next"
+import { ChevronDown, History, LogOut, Menu, Plus, Settings, User } from "lucide-vue-next"
 import ChatPanel from "~/components/ChatPanel.vue"
 import HeroPlannerCard from "~/components/HeroPlannerCard.vue"
 import PlanningPreview from "~/components/PlanningPreview.vue"
@@ -52,6 +52,7 @@ const {
 const { errorMessage: authErrorMessage, status: authStatus, username } = storeToRefs(authStore)
 const { sessionId: workspaceSessionId, currentPlan } = storeToRefs(workspaceStore)
 const logoutPending = ref(false)
+const sidebarOpen = ref(false)
 const mainSplitRef = ref<HTMLElement | null>(null)
 const leftPanelWidth = ref(42)
 const isResizingSplit = ref(false)
@@ -321,23 +322,33 @@ async function onContinue() {
 }
 
 async function loadHistoryEntry(entry: TripHistoryEntry) {
+  sidebarOpen.value = false
   try {
     const { session } = await stream.loadSession(entry.sessionId)
-    stream.setSessionId(session.id)              // explicit — don't rely on loadSession side-effect
+    stream.setSessionId(session.id)
     workspaceStore.hydrateFromSession(session)
     workspaceStore.persistState()
     chatStore.hydrateFromSessionMessages(session.messages)
     chatStore.setSession(session.id)
   } catch (err) {
-    console.error("[loadHistoryEntry] failed", err)
+    const isNotFound = err instanceof Error && err.message.includes('404')
+    if (isNotFound) {
+      $toast.error("该行程已失效，可能是服务重启导致，请重新规划。")
+      const { remove } = useTripHistory()
+      remove(entry.sessionId)
+    } else {
+      console.error("[loadHistoryEntry] failed", err)
+      $toast.error("加载行程失败，请稍后再试。")
+    }
   }
 }
 
-function returnToLanding() {
+function startNewConversation() {
   chatStore.resetConversation()
   workspaceStore.reset()
   stream.setSessionId(null)
   workspaceStore.persistState()
+  sidebarOpen.value = false
 }
 
 async function submitLogout() {
@@ -420,7 +431,7 @@ onBeforeUnmount(() => {
           type="button"
           class="compact-brand"
           aria-label="回到首页"
-          @click="returnToLanding"
+          @click="startNewConversation"
         >
           旅行规划助手
         </button>
@@ -434,6 +445,15 @@ onBeforeUnmount(() => {
         </p>
       </div>
 
+      <button
+        type="button"
+        class="sidebar-hamburger"
+        aria-label="打开历史记录"
+        @click="sidebarOpen = !sidebarOpen"
+      >
+        <Menu :size="18" :stroke-width="1.75" />
+      </button>
+
       <div class="page-topbar-actions">
         <DropdownMenu>
           <template #trigger>
@@ -446,7 +466,7 @@ onBeforeUnmount(() => {
             <User :size="14" :stroke-width="1.5" />
             账号信息
           </DropdownMenuItem>
-          <DropdownMenuItem @select="returnToLanding">
+          <DropdownMenuItem @select="startNewConversation">
             <History :size="14" :stroke-width="1.5" />
             规划历史
           </DropdownMenuItem>
@@ -463,92 +483,123 @@ onBeforeUnmount(() => {
       </div>
     </header>
 
-    <template v-if="isLanding">
-      <div class="landing-stack">
-        <HeroPlannerCard :loading="phase === 'planning'" @submit="submitPrompt" />
-        <TripHistoryGrid @select="loadHistoryEntry" />
-      </div>
-    </template>
-
-    <template v-else>
-      <!-- ReAct loop UI (mutually exclusive) -->
-      <ReactProgressBar
-        v-if="loopStatus"
-        :loop-status="loopStatus"
-        :iteration="iteration"
-        :max-iterations="maxIterations"
-        :display-score="displayScore"
-        :target-score="targetScore"
-      />
-      <ClarifyCard
-        v-else-if="awaitingClarify"
-        :question="awaitingClarify.question"
-        :reason="awaitingClarify.reason"
-        :default-suggestion="awaitingClarify.defaultSuggestion"
-        @use-default="onUseDefault"
-      />
-      <MaxIterCard
-        v-else-if="canContinue && maxIterReached"
-        :max-iterations="maxIterations"
-        :current-score="maxIterReached.currentScore"
-        :target-score="targetScore"
-        @continue="onContinue"
-      />
-
-      <section class="main-section">
-        <section
-          ref="mainSplitRef"
-          class="main-grid"
-          :class="{ 'is-single-panel': !hasPlanArtifact }"
-          :style="mainGridStyle"
+    <div class="page-body">
+      <!-- Sidebar -->
+      <aside
+        class="history-sidebar"
+        :class="{ 'is-open': sidebarOpen }"
+      >
+        <button
+          type="button"
+          class="sidebar-new-btn"
+          @click="startNewConversation"
         >
-          <div class="main-grid-panel main-grid-panel-primary">
-            <ChatPanel
-              :agent-status="agentStatus"
-              :messages="messages"
-              :phase="phase"
-              :stream-steps="streamSteps"
-            >
-              <template #composer>
-                <PromptComposer
-                  compact
-                  :draft="draft"
-                  :loading="phase === 'planning'"
-                  @submit="submitPrompt"
-                  @update-draft="chatStore.setDraft"
-                  @use-prompt="applySuggestedPrompt"
-                />
-              </template>
-            </ChatPanel>
+          <Plus :size="14" :stroke-width="2" />
+          新建行程
+        </button>
+        <TripHistoryGrid
+          variant="list"
+          :active-session-id="workspaceSessionId"
+          @select="loadHistoryEntry"
+        />
+      </aside>
+
+      <!-- Overlay for mobile -->
+      <div
+        v-if="sidebarOpen"
+        class="sidebar-overlay"
+        @click="sidebarOpen = false"
+      />
+
+      <!-- Main content -->
+      <div class="page-main">
+        <template v-if="isLanding">
+          <div class="landing-stack">
+            <HeroPlannerCard :loading="phase === 'planning'" @submit="submitPrompt" />
           </div>
+        </template>
 
-          <template v-if="hasPlanArtifact">
-            <button
-              type="button"
-              class="main-grid-divider"
-              :class="{ 'is-resizing': isResizingSplit }"
-              aria-label="调整对话区和结果区宽度"
-              @pointerdown="startSplitResize"
+        <template v-else>
+          <!-- ReAct loop UI (mutually exclusive) -->
+          <ReactProgressBar
+            v-if="loopStatus"
+            :loop-status="loopStatus"
+            :iteration="iteration"
+            :max-iterations="maxIterations"
+            :display-score="displayScore"
+            :target-score="targetScore"
+          />
+          <ClarifyCard
+            v-else-if="awaitingClarify"
+            :question="awaitingClarify.question"
+            :reason="awaitingClarify.reason"
+            :default-suggestion="awaitingClarify.defaultSuggestion"
+            @use-default="onUseDefault"
+          />
+          <MaxIterCard
+            v-else-if="canContinue && maxIterReached"
+            :max-iterations="maxIterations"
+            :current-score="maxIterReached.currentScore"
+            :target-score="targetScore"
+            @continue="onContinue"
+          />
+
+          <section class="main-section">
+            <section
+              ref="mainSplitRef"
+              class="main-grid"
+              :class="{ 'is-single-panel': !hasPlanArtifact }"
+              :style="mainGridStyle"
             >
-              <span class="main-grid-divider-track" />
-              <span class="main-grid-divider-grip">
-                <span />
-                <span />
-                <span />
-              </span>
-            </button>
+              <div class="main-grid-panel main-grid-panel-primary">
+                <ChatPanel
+                  :agent-status="agentStatus"
+                  :messages="messages"
+                  :phase="phase"
+                  :stream-steps="streamSteps"
+                >
+                  <template #composer>
+                    <PromptComposer
+                      compact
+                      :draft="draft"
+                      :loading="phase === 'planning'"
+                      @submit="submitPrompt"
+                      @update-draft="chatStore.setDraft"
+                      @use-prompt="applySuggestedPrompt"
+                    />
+                  </template>
+                </ChatPanel>
+              </div>
 
-            <div class="main-grid-panel">
-              <PlanningPreview
-                :agent-status="agentStatus"
-                :error-message="errorMessage"
-                :phase="phase"
-              />
-            </div>
-          </template>
-        </section>
-      </section>
-    </template>
+              <template v-if="hasPlanArtifact">
+                <button
+                  type="button"
+                  class="main-grid-divider"
+                  :class="{ 'is-resizing': isResizingSplit }"
+                  aria-label="调整对话区和结果区宽度"
+                  @pointerdown="startSplitResize"
+                >
+                  <span class="main-grid-divider-track" />
+                  <span class="main-grid-divider-grip">
+                    <span />
+                    <span />
+                    <span />
+                  </span>
+                </button>
+
+                <div class="main-grid-panel">
+                  <PlanningPreview
+                    :agent-status="agentStatus"
+                    :error-message="errorMessage"
+                    :phase="phase"
+                  />
+                </div>
+              </template>
+            </section>
+          </section>
+        </template>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -570,6 +621,54 @@ onBeforeUnmount(() => {
   cursor: pointer;
 }
 
+.page-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.history-sidebar {
+  width: 240px;
+  flex-shrink: 0;
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 8px;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.sidebar-new-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 7px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--bg-elevated);
+  font-family: var(--font-display);
+  font-size: var(--type-body-sm-size);
+  font-weight: 500;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--dur-fast) var(--ease-out), background var(--dur-fast) var(--ease-out);
+}
+.sidebar-new-btn:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+}
+
+.page-main {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
 .landing-stack {
   display: flex;
   flex-direction: column;
@@ -577,8 +676,50 @@ onBeforeUnmount(() => {
   padding: 8px 0 40px;
 }
 
+.sidebar-hamburger {
+  display: none;
+  appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 4px;
+  cursor: pointer;
+  color: var(--text);
+}
+
+.sidebar-overlay {
+  display: none;
+}
+
+@media (max-width: 768px) {
+  .history-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 200;
+    width: 280px;
+    transform: translateX(-100%);
+    transition: transform 0.22s var(--ease-out);
+    box-shadow: var(--shadow-xl);
+  }
+  .history-sidebar.is-open {
+    transform: translateX(0);
+  }
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 199;
+    background: rgba(0,0,0,0.3);
+  }
+  .sidebar-hamburger {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 640px) {
   .landing-stack { gap: 22px; padding-bottom: 24px; }
+  .page-topbar-brand { gap: 4px; }
 }
 
 .page-breadcrumb {
