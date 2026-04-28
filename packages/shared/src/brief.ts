@@ -1,21 +1,29 @@
 import { z } from 'zod'
 
+const nullToUndefined = (v: unknown) => (v === null ? undefined : v)
+
 export const rawBriefShape = z.object({
   destinations: z.array(z.string()).default([]),
-  originCity: z.string().optional(),
+  originCity: z.preprocess(nullToUndefined, z.string().optional()),
   days: z.number().int().nonnegative(),
   travelers: z.number().int().positive().default(1),
-  travelDates: z.object({
-    start: z.string(),
-    end: z.string(),
-  }).optional(),
-  budget: z.object({
-    amount: z.number().nonnegative(),
-    currency: z.string().default('CNY'),
-  }).optional(),
+  travelDates: z.preprocess(
+    nullToUndefined,
+    z.object({
+      start: z.string(),
+      end: z.string(),
+    }).optional(),
+  ),
+  budget: z.preprocess(
+    nullToUndefined,
+    z.object({
+      amount: z.preprocess(nullToUndefined, z.number().nonnegative().optional()),
+      currency: z.string().default('CNY'),
+    }).optional(),
+  ),
   preferences: z.array(z.string()).default([]),
-  pace: z.enum(['relaxed', 'balanced', 'packed']).optional(),
-  notes: z.string().optional(),
+  pace: z.preprocess(nullToUndefined, z.enum(['relaxed', 'balanced', 'packed']).optional()),
+  notes: z.preprocess(nullToUndefined, z.string().optional()),
 })
 
 export const TripBriefSchema = z.preprocess((raw) => {

@@ -17,6 +17,7 @@ async function streamOrchestrator(
 ): Promise<{
   assistantMessage: OpenAI.Chat.ChatCompletionMessageParam
   toolCalls: ToolCallBlock[]
+  fullContent: string
 }> {
   let fullContent = ''
   const rawToolCalls = new Map<number, { id: string; name: string; arguments: string }>()
@@ -72,7 +73,7 @@ async function streamOrchestrator(
     }
     : { role: 'assistant', content: fullContent }
 
-  return { assistantMessage, toolCalls }
+  return { assistantMessage, toolCalls, fullContent }
 }
 
 function isCancelled(session: SessionState, runId: string): boolean {
@@ -94,10 +95,13 @@ export async function* runReactLoop(
   while (state.turnCount < MAX_TURNS) {
     if (isCancelled(session, runId)) return
 
-    const { assistantMessage, toolCalls } = await streamOrchestrator(state, emit)
+    const { assistantMessage, toolCalls, fullContent } = await streamOrchestrator(state, emit)
 
-    // No tool calls → orchestrator decided it's done
+    // No tool calls → orchestrator responded directly with text
     if (toolCalls.length === 0) {
+      if (fullContent) {
+        await emit({ type: 'token', delta: fullContent })
+      }
       session.status = 'converged'
       session.pendingClarification = null
       yield { type: 'done', messageId: randomUUID(), converged: true }

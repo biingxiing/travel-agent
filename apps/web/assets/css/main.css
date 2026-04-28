@@ -924,20 +924,17 @@ p { margin: 0; line-height: 1.55; }
    ─────────────────────────────────────────────────────────────────────────── */
 
 .page-shell {
-  max-width: 1440px;
-  margin: 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0;
   min-height: 100dvh;
-  padding: 24px 28px 32px;
+  padding: 24px 24px 24px;
   display: flex;
   flex-direction: column;
   gap: 0;
 }
 
-.page-shell.is-landing {
-  overflow: visible;
-  height: auto;
-}
-
+.page-shell.is-landing,
 .page-shell.is-conversation {
   height: 100dvh;
   overflow: hidden;
@@ -1059,7 +1056,7 @@ p { margin: 0; line-height: 1.55; }
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  padding-bottom: 18px;
+  padding-bottom: 0;
 }
 
 body.is-panel-resizing { user-select: none; }
@@ -1068,6 +1065,7 @@ body.is-panel-resizing { user-select: none; }
 .main-grid {
   --main-grid-left: 42%;
   display: flex;
+  flex: 1;
   gap: 0;
   align-items: stretch;
   min-height: 0;
@@ -1087,6 +1085,7 @@ body.is-panel-resizing { user-select: none; }
 .main-grid-panel > .conversation-shell,
 .main-grid-panel > .result-shell {
   width: 100%;
+  height: 100%;
 }
 
 .main-grid-divider {
@@ -2331,9 +2330,9 @@ body.is-panel-resizing { user-select: none; }
   }
   .auth-form-panel { padding: 32px 28px; }
 
+  .page-shell.is-landing,
   .page-shell.is-conversation {
     height: auto;
-    min-height: auto;
     overflow: visible;
   }
 
@@ -2373,6 +2372,12 @@ body.is-panel-resizing { user-select: none; }
   }
 
   .conversation-composer { position: static; }
+}
+
+@media (max-width: 1200px) {
+  .page-shell {
+    padding: 20px 16px 24px;
+  }
 }
 
 @media (max-width: 640px) {

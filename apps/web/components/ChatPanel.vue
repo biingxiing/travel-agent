@@ -21,7 +21,7 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   <section class="conversation-shell">
     <header class="panel-title">
       <div class="panel-title-text">
-        <h2>对话流</h2>
+        <h2>对话</h2>
       </div>
       <span class="panel-status-chip" :class="{ 'is-active': phase === 'planning' }">
         <span class="panel-status-dot" />

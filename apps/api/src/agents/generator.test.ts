@@ -4,6 +4,7 @@ const { createMock } = vi.hoisted(() => ({ createMock: vi.fn() }))
 vi.mock('../llm/client.js', () => ({
   llm: { chat: { completions: { create: createMock } } },
   FAST_MODEL: 'fake-fast', PLANNER_MODEL: 'fake-plan',
+  REASONING_EFFORT: undefined,
 }))
 
 vi.mock('../registry/skill-registry.js', () => ({
@@ -67,8 +68,8 @@ describe('generator.runRefine', () => {
     }
     const mockBrief: TripBrief = {
       destinations: ['Beijing'], days: 3, travelers: 1,
-      preferences: [], originCity: null, pace: 'balanced',
-      budget: null, travelDates: null, notes: null,
+      preferences: [], originCity: undefined, pace: 'balanced',
+      budget: undefined, travelDates: undefined, notes: undefined,
     }
 
     // Should not throw — no messages param

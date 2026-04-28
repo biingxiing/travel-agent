@@ -21,27 +21,27 @@ function baseSession(): SessionState {
 }
 
 describe('buildOrchestratorMessages', () => {
-  it('produces exactly two system messages before conversation history', () => {
+  it('produces a static system prompt first and a trailing dynamic state system message', () => {
     const msgs = buildOrchestratorMessages(baseSession())
     expect(msgs[0].role).toBe('system')
-    expect(msgs[1].role).toBe('system')
-    const stateMsg = msgs[1] as { role: string; content: string }
-    expect(stateMsg.content).toContain('Session state:')
+    const tail = msgs[msgs.length - 1] as { role: string; content: string }
+    expect(tail.role).toBe('system')
+    expect(tail.content).toContain('Session state:')
   })
 
-  it('includes currentPlan in the state system message', () => {
+  it('includes hasCurrentPlan in the state system message but omits the full currentPlan blob', () => {
     const session = baseSession()
     session.currentPlan = {
       title: 'test', destinations: ['北京'], days: 3, travelers: 1,
       pace: 'balanced', preferences: [], dailyPlans: [], tips: [], disclaimer: '',
     }
     const msgs = buildOrchestratorMessages(session)
-    const stateContent = (msgs[1] as { content: string }).content
+    const stateContent = (msgs[msgs.length - 1] as { content: string }).content
     expect(stateContent).toContain('"hasCurrentPlan":true')
-    expect(stateContent).toContain('"currentPlan"')
+    expect(stateContent).not.toContain('"currentPlan"')
   })
 
-  it('appends user+assistant conversation as proper turns', () => {
+  it('places conversation history between the static prompt and the trailing state message', () => {
     const session = baseSession()
     session.messages = [
       { role: 'user', content: '去上海3天', timestamp: 1 },
@@ -50,9 +50,10 @@ describe('buildOrchestratorMessages', () => {
     ]
     const msgs = buildOrchestratorMessages(session)
     expect(msgs).toHaveLength(5)
-    expect(msgs[2]).toEqual({ role: 'user', content: '去上海3天' })
-    expect(msgs[3]).toEqual({ role: 'assistant', content: '已生成方案' })
-    expect(msgs[4]).toEqual({ role: 'user', content: '改一下第2天' })
+    expect(msgs[1]).toEqual({ role: 'user', content: '去上海3天' })
+    expect(msgs[2]).toEqual({ role: 'assistant', content: '已生成方案' })
+    expect(msgs[3]).toEqual({ role: 'user', content: '改一下第2天' })
+    expect((msgs[4] as { role: string }).role).toBe('system')
   })
 
   it('limits conversation history to 20 messages', () => {
@@ -63,7 +64,7 @@ describe('buildOrchestratorMessages', () => {
       timestamp: i,
     }))
     const msgs = buildOrchestratorMessages(session)
-    expect(msgs).toHaveLength(22) // 2 system + 20 conversation
+    expect(msgs).toHaveLength(22) // 1 static system + 20 conversation + 1 trailing state
   })
 
   it('filters out empty/whitespace-only messages', () => {
@@ -74,8 +75,8 @@ describe('buildOrchestratorMessages', () => {
       { role: 'user', content: '3天', timestamp: 3 },
     ]
     const msgs = buildOrchestratorMessages(session)
-    expect(msgs).toHaveLength(4) // 2 system + 2 non-empty
-    expect(msgs[3]).toEqual({ role: 'user', content: '3天' })
+    expect(msgs).toHaveLength(4) // 1 static system + 2 non-empty + 1 trailing state
+    expect(msgs[2]).toEqual({ role: 'user', content: '3天' })
   })
 
   it('no longer puts user messages in a single flat blob', () => {

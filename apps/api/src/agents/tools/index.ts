@@ -51,7 +51,6 @@ export function buildOrchestratorMessages(
     hasBrief: !!session.brief,
     brief: session.brief,
     hasCurrentPlan: !!session.currentPlan,
-    currentPlan: session.currentPlan,
     currentScore: session.currentScore,
     language: session.language ?? 'zh',
     iterationCount: session.iterationCount,
@@ -66,7 +65,7 @@ export function buildOrchestratorMessages(
 
   return [
     { role: 'system', content: ORCHESTRATOR_SYSTEM_PROMPT },
-    { role: 'system', content: `Session state:\n${stateContext}` },
     ...conversationHistory,
+    { role: 'system', content: `Session state:\n${stateContext}` },
   ]
 }

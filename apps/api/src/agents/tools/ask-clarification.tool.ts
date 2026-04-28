@@ -7,7 +7,7 @@ type ClarifyReason = 'missing_destination' | 'missing_days' | 'missing_dates'
 
 export const askClarificationTool: SubagentTool = {
   name: 'call_clarifier',
-  description: 'Ask the traveler a single warm clarifying question when destination, days, or dates are missing and cannot be inferred from context. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message.',
+  description: 'Ask the traveler a single warm clarifying question when destination, days, or dates are missing and cannot be inferred from context. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message. (brief is read from session automatically; only pass it if you want to override)',
   parametersSchema: {
     type: 'object',
     properties: {
@@ -22,16 +22,17 @@ export const askClarificationTool: SubagentTool = {
       },
       language: { type: 'string', description: 'User language for the question.' },
     },
-    required: ['reason', 'brief', 'language'],
+    required: ['reason', 'language'],
     additionalProperties: false,
   },
   isConcurrencySafe: () => false,
   async call(input, session: SessionState, emit: EmitFn): Promise<SubagentResult> {
-    const { reason, brief, language } = input as {
+    const { reason, brief: briefArg, language } = input as {
       reason: ClarifyReason
-      brief: Partial<TripBrief>
+      brief?: Partial<TripBrief>
       language: string
     }
+    const brief = briefArg ?? session.brief ?? undefined
     // Pass session messages for context-aware question generation
     const msgs = session.messages.map(m => ({ ...m }))
     const { question, defaultSuggestion } = await generateClarification(msgs, brief, reason, language)

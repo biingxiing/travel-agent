@@ -70,6 +70,32 @@ function resolveEffort(params: Record<string, unknown>): string | undefined {
   return callerEffort ?? REASONING_EFFORT
 }
 
+function collectToolCalls(
+  bucket: Map<number, { id: string; type: string; name: string; arguments: string }>,
+  deltaToolCalls: OpenAI.Chat.ChatCompletionChunk.Choice.Delta.ToolCall[] | undefined,
+): void {
+  if (!deltaToolCalls) return
+  for (const tc of deltaToolCalls) {
+    const idx = tc.index ?? 0
+    const existing = bucket.get(idx) ?? { id: '', type: 'function', name: '', arguments: '' }
+    bucket.set(idx, {
+      id: tc.id ? tc.id : existing.id,
+      type: tc.type ? tc.type : existing.type,
+      name: tc.function?.name ? tc.function.name : existing.name,
+      arguments: existing.arguments + (tc.function?.arguments ?? ''),
+    })
+  }
+}
+
+function formatVerboseOutput(
+  agent: string,
+  content: string,
+  toolCalls: Array<{ id: string; type: string; function: { name: string; arguments: string } }>,
+): string {
+  if (toolCalls.length === 0) return `[llm:output] agent=${agent}\n${content}`
+  return `[llm:output] agent=${agent}\ncontent:\n${content}\n\ntool_calls:\n${JSON.stringify(toolCalls, null, 2)}`
+}
+
 export async function loggedCompletion(
   agent: string,
   params: OpenAI.Chat.ChatCompletionCreateParamsNonStreaming,
@@ -171,6 +197,7 @@ export async function* loggedStream(
   let completionTokens: number | null = null
   let totalTokens: number | null = null
   let cachedTokens: number | null = null
+  const rawToolCalls = new Map<number, { id: string; type: string; name: string; arguments: string }>()
   try {
     const stream = await llm.chat.completions.create({
       ...(REASONING_EFFORT ? { reasoning_effort: REASONING_EFFORT as 'low' | 'medium' | 'high' } : {}),
@@ -178,7 +205,9 @@ export async function* loggedStream(
       stream: true,
     })
     for await (const chunk of stream) {
-      content += chunk.choices[0]?.delta?.content ?? ''
+      const delta = chunk.choices[0]?.delta
+      content += delta?.content ?? ''
+      collectToolCalls(rawToolCalls, delta?.tool_calls)
       if (chunk.usage) {
         promptTokens = chunk.usage.prompt_tokens ?? null
         completionTokens = chunk.usage.completion_tokens ?? null
@@ -206,8 +235,18 @@ export async function* loggedStream(
             return fn?.name ?? t.name
           })
         : undefined
+      const toolCalls = Array.from(rawToolCalls.entries())
+        .sort(([a], [b]) => a - b)
+        .map(([, tc]) => ({
+          id: tc.id,
+          type: tc.type,
+          function: {
+            name: tc.name,
+            arguments: tc.arguments,
+          },
+        }))
       console.log(`[llm:input] agent=${agent}${tools ? ` tools=[${tools.join(',')}]` : ''}\n${JSON.stringify(params.messages, null, 2)}`)
-      if (ok) console.log(`[llm:output] agent=${agent}\n${content}`)
+      if (ok) console.log(formatVerboseOutput(agent, content, toolCalls))
     }
     void insertLLMCall({
       id: randomUUID(), sessionId: ctx.sessionId, runId: ctx.runId,

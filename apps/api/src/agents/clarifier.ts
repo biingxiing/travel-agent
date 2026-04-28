@@ -52,6 +52,13 @@ function briefSummary(brief: Partial<TripBrief> | undefined): string {
   if (brief.days) parts.push(`${brief.days} days`)
   if (brief.travelers && brief.travelers > 1) parts.push(`${brief.travelers} travelers`)
   if (brief.originCity) parts.push(`departing from ${brief.originCity}`)
+  if (brief.travelDates?.start && brief.travelDates?.end) {
+    parts.push(`travelDates: ${brief.travelDates.start} to ${brief.travelDates.end}`)
+  }
+  if (brief.preferences && brief.preferences.length > 0) {
+    parts.push(`preferences: ${brief.preferences.join(', ')}`)
+  }
+  if (brief.pace) parts.push(`pace: ${brief.pace}`)
   return parts.join('; ') || 'none'
 }
 

@@ -2,7 +2,7 @@
 
 服务地址：`http://43.166.169.153:8080/v1`  
 性质：ChatGPT 订阅 → OpenAI Responses API 的代理，对外暴露 OpenAI Chat Completions 兼容接口。
-
+代码位置: /Users/bill/Documents/code/sub2api
 ---
 
 ## 可用模型
@@ -72,6 +72,7 @@ Responses API 也不支持该参数，参数会被静默丢弃。
 | `stream_options.include_usage` | ✅ 正常 | 用量在最后一个 chunk 返回 |
 | non-streaming (`stream: false`) | ❌ Bug | content 字段缺失 |
 | `response_format` | ❌ 无效 | 被静默丢弃，改用 system prompt 约束 |
+| `reasoning_effort` / `reasoning.effort` | ✅ 生效 | gpt-5.4 实测支持，上游会按强度做隐藏推理；`"minimal"` 规范化为 `"none"`。推理 token 被合并到 `completion_tokens`，未单独暴露 `reasoning_tokens` |
 | `stop` | ❌ 无效 | 停止序列被静默忽略 |
 | `frequency_penalty` | ❌ 无效 | 被静默忽略，Responses API 不支持此参数 |
 | `presence_penalty` | ❌ 无效 | 被静默忽略，Responses API 不支持此参数 |
@@ -193,9 +194,61 @@ LLM_BASE_URL=http://43.166.169.153:8080/v1
 LLM_API_KEY=<your_key>
 LLM_MODEL_PLANNER=gpt-5.4
 LLM_MODEL_FAST=gpt-5.4
+# 可选：思考强度（low | medium | high | xhigh）
+LLM_REASONING_EFFORT=xhigh
 ```
 
 > 目前 PLANNER 和 FAST 都只能用 `gpt-5.4`，账号暂无其他可用模型。
+> 设置 `LLM_REASONING_EFFORT` 后，`apps/api/src/llm/logger.ts` 会把 `reasoning_effort` 自动注入到每次 `llm.chat.completions.create` 调用。  
+> gpt-5.4 实测支持该参数（强度越高，隐藏推理 token 越多，但都被合并到 `completion_tokens`，未单独暴露 `reasoning_tokens`）。
+
+---
+
+## 启用思考强度（reasoning_effort）
+
+### 直接在请求里传
+
+```bash
+curl -N http://43.166.169.153:8080/v1/chat/completions \
+  -H "Authorization: Bearer <YOUR_API_KEY>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5.4",
+    "messages": [{"role": "user", "content": "9.9 和 9.11 哪个大？"}],
+    "stream": true,
+    "stream_options": {"include_usage": true},
+    "reasoning_effort": "xhigh"
+  }'
+```
+
+合法值：`"low"` | `"medium"` | `"high"` | `"xhigh"`（`"minimal"` 会被规范化为 `"none"` 丢弃）。
+
+嵌套写法等效：`{"reasoning": {"effort": "xhigh"}}`。
+
+### 在 Node.js / OpenAI SDK 里传
+
+```typescript
+const stream = await llm.chat.completions.create({
+  model: 'gpt-5.4',
+  messages: [...],
+  stream: true,
+  stream_options: { include_usage: true },
+  reasoning_effort: 'xhigh' as any, // OpenAI SDK 类型只到 high，xhigh 需要 cast
+})
+```
+
+### 验证是否生效
+
+最后一个 chunk 的 `usage.reasoning_tokens` 没有单独暴露，但可以**通过 `completion_tokens` 的变化间接验证**——同一个简短问题，不同强度对比（实测 2026-04-28）：
+
+| reasoning_effort | completion_tokens（"9.11 和 9.9 哪个数字大？只回复一个字" 实测） |
+|---|---|
+| 不传 | 5 |
+| `low` | 120 |
+| `high` | 156 |
+| `xhigh` | 216 |
+
+完成令牌随强度单调增长，差值即为隐藏的推理 token——证明上游确实按强度做了内部推理。
 
 ---
 
@@ -223,6 +276,8 @@ LLM_MODEL_FAST=gpt-5.4
 | `tools[].function.parameters` | object | JSON Schema | ✅ | |
 | `tool_choice` | string \| object | `"none"` \| `"auto"` \| `"required"` \| `{"type":"function","function":{"name":"fn"}}` | ✅ | |
 | `user` | string | — | ⚠️ | 不报错，无可见效果 |
+| `reasoning_effort` | string | `"low"` \| `"medium"` \| `"high"` \| `"xhigh"` | ✅ | gpt-5.4 实测支持，强度越高隐藏推理 token 越多；`"minimal"` 规范化为 `"none"` |
+| `reasoning.effort` | string | 同上 | ✅ | 嵌套写法，与 `reasoning_effort` 等效 |
 | `stop` | string \| array | — | ❌ | 静默忽略 |
 | `frequency_penalty` | float | `-2.0` – `2.0` | ❌ | Responses API 不支持，静默丢弃 |
 | `presence_penalty` | float | `-2.0` – `2.0` | ❌ | Responses API 不支持，静默丢弃 |
@@ -230,8 +285,27 @@ LLM_MODEL_FAST=gpt-5.4
 | `seed` | integer | — | ❌ | 静默忽略，不保证复现 |
 | `logprobs` | boolean | `true` \| `false` | ❌ | 响应中不含该字段 |
 | `top_logprobs` | integer | `0` – `20` | ❌ | 同上 |
-| `max_completion_tokens` | integer | — | ❌ | 新版字段，代理不识别 |
+| `max_completion_tokens` | integer | — | ❌ | 新版字段，代理不识别，被忽略 |
 | `response_format` | object | — | ❌ | 静默丢弃，用 system prompt 代替 |
+
+---
+
+## 内部字段说明
+
+### `prompt_cache_key`
+
+**不是**标准 OpenAI Chat Completions API 字段，**不需要**在客户端传递。
+
+sub2api 底层通过 WebSocket 与 ChatGPT Responses API 通信。`prompt_cache_key` 是 sub2api 内部用于维持上游 WebSocket **会话粘连（sticky session）**的标识符——让同一个逻辑会话的多次请求路由到同一个上游连接。
+
+```
+客户端（你的代码）
+  └─ HTTP POST /v1/chat/completions (stream: true, SSE)
+       └─ sub2api 服务器
+            └─ WebSocket → ChatGPT Responses API
+```
+
+如果请求 body 里带了 `prompt_cache_key`，sub2api 会用它作为会话 ID（优先级低于 `session_id` / `conversation_id` header，高于内容哈希兜底）。对普通 HTTP 调用方无需关心此字段。
 
 ---
 

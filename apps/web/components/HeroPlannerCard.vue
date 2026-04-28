@@ -31,11 +31,6 @@ function applyPreset(value: string) {
 <template>
   <section class="hero-shell">
     <div class="hero">
-      <div class="hero-kicker">
-        <span class="hero-dot" />
-        <span>AI TRAVEL PLANNER</span>
-      </div>
-
       <h1 class="hero-title">
         规划一次
         <br />
@@ -43,7 +38,7 @@ function applyPreset(value: string) {
       </h1>
 
       <p class="hero-sub">
-        告诉我目的地、天数和预算 —— 我会用 ReAct 循环反复优化，一路带着你一起打磨。
+        告诉我想去哪里、玩几天、预算多少，我先给你一版能落地的行程，再按你的反馈继续细化。
       </p>
 
       <div class="hero-composer">
@@ -51,7 +46,7 @@ function applyPreset(value: string) {
           v-model="draftPrompt"
           class="hero-composer-input"
           placeholder="说说你的出行需求：目的地 / 天数 / 人数 / 预算 / 偏好…"
-          rows="2"
+          rows="3"
           :disabled="loading"
           @keydown.enter.exact.prevent="submitPrompt"
         />
@@ -90,11 +85,22 @@ function applyPreset(value: string) {
 </template>
 
 <style scoped>
-.hero-shell { margin-bottom: 14px; }
+.hero-shell {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  margin-bottom: 0;
+}
 
 .hero {
   position: relative;
-  padding: 56px 32px 44px;
+  flex: 1;
+  height: 100%;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: clamp(40px, 7vh, 72px) 32px 40px;
   text-align: center;
   background:
     var(--gradient-aurora-soft),
@@ -113,27 +119,9 @@ function applyPreset(value: string) {
   pointer-events: none;
 }
 
-.hero-kicker {
-  position: relative; z-index: 1;
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 4px 12px;
-  background: var(--brand-blue-soft);
-  color: var(--brand-blue-deep);
-  border: 1px solid var(--brand-blue-border);
-  border-radius: 999px;
-  font-family: var(--font-mono);
-  font-size: var(--type-mono-xs-size);
-  letter-spacing: var(--type-mono-xs-tracking);
-}
-.hero-dot {
-  width: 6px; height: 6px; border-radius: 50%;
-  background: var(--brand-blue);
-  box-shadow: 0 0 0 3px rgba(79, 124, 255, 0.18);
-}
-
 .hero-title {
   position: relative; z-index: 1;
-  margin: 20px 0 12px;
+  margin: 0 0 12px;
   font-family: var(--font-display);
   font-weight: 700;
   font-size: var(--type-display-xl-size);
@@ -150,8 +138,8 @@ function applyPreset(value: string) {
 
 .hero-sub {
   position: relative; z-index: 1;
-  margin: 0 auto 28px;
-  max-width: 46ch;
+  margin: 0 auto 24px;
+  max-width: 42ch;
   color: var(--text-muted);
   font-size: var(--type-body-lg-size);
   line-height: 1.55;
@@ -159,9 +147,9 @@ function applyPreset(value: string) {
 
 .hero-composer {
   position: relative; z-index: 1;
-  max-width: 680px;
+  width: min(100%, clamp(760px, 40vw, 920px));
   margin: 0 auto;
-  padding: 16px 18px 14px;
+  padding: 20px 22px 18px;
   background: var(--bg-glass);
   backdrop-filter: blur(8px);
   border: 1px solid var(--border);
@@ -178,14 +166,14 @@ function applyPreset(value: string) {
   font-family: var(--font-body);
   font-size: var(--type-body-lg-size);
   line-height: 1.55;
-  min-height: 48px;
+  min-height: 72px;
 }
 .hero-composer-input::placeholder { color: var(--text-subtle); }
 .hero-composer-input:disabled { cursor: not-allowed; opacity: 0.7; }
 
 .hero-composer-row {
   display: flex; align-items: center; justify-content: space-between; gap: 12px;
-  margin-top: 12px; padding-top: 12px;
+  margin-top: 14px; padding-top: 14px;
   border-top: 1px solid var(--border-subtle);
 }
 
@@ -221,7 +209,7 @@ function applyPreset(value: string) {
 
 .hero-presets {
   position: relative; z-index: 1;
-  margin-top: 24px;
+  margin-top: 20px;
   display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
 }
 .hero-preset {
@@ -246,8 +234,10 @@ function applyPreset(value: string) {
 }
 
 @media (max-width: 640px) {
-  .hero { padding: 36px 20px 28px; }
+  .hero-shell { flex: 0 0 auto; }
+  .hero { padding: 32px 20px 24px; }
   .hero-title { font-size: clamp(32px, 8vw, 44px); }
+  .hero-composer { padding: 18px 18px 16px; }
   .hero-composer-row { flex-direction: column; align-items: stretch; }
   .hero-submit { justify-content: center; }
 }

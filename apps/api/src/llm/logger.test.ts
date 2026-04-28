@@ -288,4 +288,70 @@ describe('loggedStream', () => {
       }),
     )
   })
+
+  it('prints streamed tool_calls in verbose output', async () => {
+    vi.resetModules()
+    vi.stubEnv('LLM_VERBOSE', 'true')
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {})
+
+    try {
+      const createMock = vi.fn().mockReturnValue((async function* () {
+        yield {
+          choices: [{
+            delta: {
+              tool_calls: [{
+                index: 0,
+                id: 'tc1',
+                function: {
+                  name: 'call_extractor',
+                  arguments: '{"messages":["顺德，珠海"]}',
+                },
+              }],
+            },
+            finish_reason: null,
+          }],
+          usage: null,
+        }
+        yield {
+          choices: [{ delta: {}, finish_reason: 'tool_calls' }],
+          usage: { prompt_tokens: 10, completion_tokens: 3, total_tokens: 13 },
+        }
+      })())
+
+      vi.doMock('../llm/client.js', () => ({
+        llm: { chat: { completions: { create: createMock } } },
+        FAST_MODEL: 'fake-fast',
+        PLANNER_MODEL: 'fake-plan',
+        REASONING_EFFORT: undefined,
+      }))
+      vi.doMock('../persistence/pg.js', () => ({
+        isDatabaseEnabled: vi.fn(() => true),
+        insertLLMCall: vi.fn().mockResolvedValue(undefined),
+      }))
+
+      const { loggedStream: verboseLoggedStream, withSessionContext: verboseWithSessionContext } = await import('./logger.js')
+
+      await verboseWithSessionContext('sess-stream', 'run-stream', async () => {
+        for await (const _ of verboseLoggedStream('orchestrator', {
+          model: 'fake-plan',
+          messages: [{ role: 'user', content: 'plan trip' }],
+          tools: [],
+        })) {
+          void _
+        }
+      })
+
+      const logs = consoleSpy.mock.calls.map(args => String(args[0]))
+      const outputLog = logs.find(line => line.includes('[llm:output] agent=orchestrator'))
+      expect(outputLog).toContain('tool_calls:')
+      expect(outputLog).toContain('call_extractor')
+      expect(outputLog).toContain('\\"messages\\":[\\"顺德，珠海\\"]')
+    } finally {
+      consoleSpy.mockRestore()
+      vi.unstubAllEnvs()
+      vi.doUnmock('../llm/client.js')
+      vi.doUnmock('../persistence/pg.js')
+      vi.resetModules()
+    }
+  })
 })

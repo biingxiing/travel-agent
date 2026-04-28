@@ -512,7 +512,7 @@ onBeforeUnmount(() => {
       />
 
       <!-- Main content -->
-      <div class="page-main">
+      <div class="page-main" :class="{ 'is-landing': isLanding }">
         <template v-if="isLanding">
           <div class="landing-stack">
             <HeroPlannerCard :loading="phase === 'planning'" @submit="submitPrompt" />
@@ -529,15 +529,8 @@ onBeforeUnmount(() => {
             :display-score="displayScore"
             :target-score="targetScore"
           />
-          <ClarifyCard
-            v-else-if="awaitingClarify"
-            :question="awaitingClarify.question"
-            :reason="awaitingClarify.reason"
-            :default-suggestion="awaitingClarify.defaultSuggestion"
-            @use-default="onUseDefault"
-          />
           <MaxIterCard
-            v-else-if="canContinue && maxIterReached"
+            v-else-if="!awaitingClarify && canContinue && maxIterReached"
             :max-iterations="maxIterations"
             :current-score="maxIterReached.currentScore"
             :target-score="targetScore"
@@ -664,16 +657,24 @@ onBeforeUnmount(() => {
 .page-main {
   flex: 1;
   min-width: 0;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
 }
 
+.page-main.is-landing {
+  overflow-y: auto;
+}
+
 .landing-stack {
+  flex: 1;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: 32px;
-  padding: 8px 0 40px;
+  padding: 0;
 }
 
 .sidebar-hamburger {
@@ -718,7 +719,14 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 640px) {
-  .landing-stack { gap: 22px; padding-bottom: 24px; }
+  .page-main.is-landing {
+    overflow: visible;
+  }
+  .landing-stack {
+    justify-content: flex-start;
+    gap: 22px;
+    padding-bottom: 24px;
+  }
   .page-topbar-brand { gap: 4px; }
 }
 
