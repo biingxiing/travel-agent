@@ -7,6 +7,16 @@ import { destinationColor } from '~/utils/destination-color'
 import { useTripHistory } from "~/composables/useTripHistory"
 import type { TripHistoryEntry } from "~/composables/useTripHistory"
 
+interface Props {
+  variant?: 'grid' | 'list'
+  activeSessionId?: string | null
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  variant: 'grid',
+  activeSessionId: null,
+})
+
 const emit = defineEmits<{
   select: [entry: TripHistoryEntry]
   remove: [entry: TripHistoryEntry]
@@ -29,7 +39,7 @@ function onRemove(entry: TripHistoryEntry) {
 </script>
 
 <template>
-  <section class="trip-history">
+  <section class="trip-history" :class="{ 'trip-history--list': props.variant === 'list' }">
     <header class="history-head">
       <h2 class="history-head-title">继续之前的规划</h2>
       <span v-if="entries.length" class="history-head-meta">
@@ -53,6 +63,7 @@ function onRemove(entry: TripHistoryEntry) {
         :animate="{ y: 0, opacity: 1 }"
         :transition="{ duration: 0.32, ease: [0.2, 0.7, 0.25, 1], delay: Math.min(index * 0.04, 0.24) }"
         class="history-card"
+        :class="{ 'is-active': entry.sessionId === props.activeSessionId }"
         role="button"
         tabindex="0"
         @click="onSelect(entry)"
@@ -60,7 +71,13 @@ function onRemove(entry: TripHistoryEntry) {
         @keydown.space.prevent="onSelect(entry)"
       >
         <div
+          v-if="props.variant !== 'list'"
           class="history-band"
+          :style="{ background: destinationColor(entry.destination || entry.title) }"
+        />
+        <div
+          v-else
+          class="history-strip"
           :style="{ background: destinationColor(entry.destination || entry.title) }"
         />
         <div class="history-body">
@@ -204,5 +221,60 @@ function onRemove(entry: TripHistoryEntry) {
 
 @media (max-width: 640px) {
   .history-grid { grid-template-columns: 1fr; }
+}
+
+/* ── list variant ── */
+.trip-history--list .history-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trip-history--list .history-card {
+  flex-direction: row;
+  align-items: center;
+  border-radius: var(--r-md);
+  min-height: 48px;
+}
+
+.history-strip {
+  width: 4px;
+  align-self: stretch;
+  flex-shrink: 0;
+  border-radius: var(--r-xs) 0 0 var(--r-xs);
+}
+
+.trip-history--list .history-body {
+  padding: 8px 12px 8px 10px;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.trip-history--list .history-dest {
+  font-size: var(--type-body-sm-size);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
+
+.trip-history--list .history-meta {
+  gap: 8px;
+  font-size: 11px;
+}
+
+.history-card.is-active {
+  background: color-mix(in srgb, var(--brand-blue) 8%, var(--bg-elevated));
+  border-color: color-mix(in srgb, var(--brand-blue) 30%, var(--border));
+}
+
+/* hide remove button on list variant to save space; show on hover */
+.trip-history--list .history-remove {
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-out);
+}
+.trip-history--list .history-card:hover .history-remove {
+  opacity: 1;
 }
 </style>
