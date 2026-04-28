@@ -42,6 +42,7 @@ CREATE TABLE IF NOT EXISTS llm_calls (
   prompt_tokens     integer,
   completion_tokens integer,
   total_tokens      integer,
+  cached_tokens     integer,
   latency_ms        integer     NOT NULL,
   ok                boolean     NOT NULL,
   error_message     text,
@@ -51,3 +52,6 @@ CREATE TABLE IF NOT EXISTS llm_calls (
 CREATE INDEX IF NOT EXISTS llm_calls_session_idx ON llm_calls (session_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_calls_created_idx ON llm_calls (created_at DESC);
 CREATE INDEX IF NOT EXISTS llm_calls_agent_idx   ON llm_calls (agent, created_at DESC);
+
+-- Add cached_tokens column to existing databases (idempotent)
+ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS cached_tokens INTEGER;

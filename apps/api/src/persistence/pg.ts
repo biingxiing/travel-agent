@@ -138,6 +138,7 @@ export interface LLMCallRow {
   promptTokens: number | null
   completionTokens: number | null
   totalTokens: number | null
+  cachedTokens: number | null
   latencyMs: number
   ok: boolean
   errorMessage: string | null
@@ -150,18 +151,18 @@ export async function insertLLMCall(row: LLMCallRow): Promise<void> {
     `INSERT INTO llm_calls (
        id, session_id, run_id, agent, model, stream,
        request, response,
-       prompt_tokens, completion_tokens, total_tokens,
+       prompt_tokens, completion_tokens, total_tokens, cached_tokens,
        latency_ms, ok, error_message, error_code
      ) VALUES (
        $1, $2, $3, $4, $5, $6,
        $7::jsonb, $8::jsonb,
-       $9, $10, $11,
-       $12, $13, $14, $15
+       $9, $10, $11, $12,
+       $13, $14, $15, $16
      )`,
     [
       row.id, row.sessionId, row.runId, row.agent, row.model, row.stream,
       JSON.stringify(row.request), row.response === null ? null : JSON.stringify(row.response),
-      row.promptTokens, row.completionTokens, row.totalTokens,
+      row.promptTokens, row.completionTokens, row.totalTokens, row.cachedTokens,
       row.latencyMs, row.ok, row.errorMessage, row.errorCode,
     ],
   )
