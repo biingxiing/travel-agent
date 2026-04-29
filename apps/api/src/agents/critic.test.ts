@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 vi.mock('../llm/client.js', () => ({
   llm: { chat: { completions: { create: vi.fn() } } },
@@ -12,7 +12,7 @@ vi.mock('../llm/logger.js', () => ({
 
 import { loggedCompletion } from '../llm/logger.js'
 import { criticReview } from './critic.js'
-import type { Plan } from '@travel-agent/shared'
+import type { Plan, TripBrief } from '@travel-agent/shared'
 
 const samplePlan: Plan = {
   title: 'Beijing 3D', destinations: ['北京'], days: 3, travelers: 1,
@@ -22,7 +22,15 @@ const samplePlan: Plan = {
   ], tips: [], disclaimer: 'x',
 }
 
+function sampleBrief(): TripBrief {
+  return { destinations: ['北京'], days: 3, travelers: 1, preferences: [] }
+}
+
 describe('critic', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   it('parses critic JSON', async () => {
     ;(loggedCompletion as any).mockResolvedValue({
       choices: [{ message: { content: JSON.stringify({
@@ -46,5 +54,26 @@ describe('critic', () => {
     const r = await criticReview(samplePlan, { destinations: ['北京'], days: 3, travelers: 1, preferences: [] })
     expect(r.qualityScore).toBe(0)
     expect(r.blockers).toEqual([])
+  })
+
+  it('retries once when initial response is non-JSON', async () => {
+    let call = 0
+    ;(loggedCompletion as any).mockImplementation(async () => {
+      call++
+      return {
+        choices: [{
+          message: {
+            role: 'assistant',
+            content: call === 1
+              ? 'Sorry, I cannot output JSON right now.'
+              : '{"qualityScore": 75, "blockers": [], "itemIssues": [], "globalIssues": []}',
+          },
+        }],
+      }
+    })
+
+    const report = await criticReview(samplePlan, sampleBrief())
+    expect(loggedCompletion).toHaveBeenCalledTimes(2)
+    expect(report.qualityScore).toBe(75)
   })
 })
