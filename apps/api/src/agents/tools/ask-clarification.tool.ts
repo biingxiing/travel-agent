@@ -1,20 +1,18 @@
 // apps/api/src/agents/tools/ask-clarification.tool.ts
 import type { SubagentTool, SubagentResult, EmitFn } from './types.js'
-import type { SessionState, TripBrief } from '@travel-agent/shared'
+import type { SessionState, TripBrief, BlockerType } from '@travel-agent/shared'
 import { generateClarification } from '../clarifier.js'
-
-type ClarifyReason = 'missing_destination' | 'missing_days' | 'missing_dates'
 
 export const askClarificationTool: SubagentTool = {
   name: 'call_clarifier',
-  description: 'Ask the traveler a single warm clarifying question when destination, days, or dates are missing and cannot be inferred from context. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message. (brief is read from session automatically; only pass it if you want to override)',
+  description: 'Ask the traveler a single warm clarifying question when any critical planning information is missing or unclear. Use this for missing destination, dates, traveler details (e.g. child age/height for family trips), budget, or any unclear preference that would materially change the itinerary. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message. (brief is read from session automatically; only pass it if you want to override)',
   parametersSchema: {
     type: 'object',
     properties: {
       reason: {
         type: 'string',
-        enum: ['missing_destination', 'missing_days', 'missing_dates'],
-        description: 'What critical information is missing.',
+        enum: ['missing_origin', 'missing_destination', 'missing_days', 'missing_dates', 'missing_budget', 'unclear_preference', 'other'],
+        description: 'Category of missing information.',
       },
       brief: {
         type: 'object',
@@ -28,7 +26,7 @@ export const askClarificationTool: SubagentTool = {
   isConcurrencySafe: () => false,
   async call(input, session: SessionState, emit: EmitFn): Promise<SubagentResult> {
     const { reason, brief: briefArg, language } = input as {
-      reason: ClarifyReason
+      reason: BlockerType
       brief?: Partial<TripBrief>
       language: string
     }

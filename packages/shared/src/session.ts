@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { MessageSchema } from './chat.js'
 import { TripBriefSchema } from './brief.js'
 import { PlanSchema } from './plan.js'
+import type { EvaluationReport } from './evaluation.js'
 
 export const SessionStatusEnum = z.enum([
   'draft', 'planning', 'refining', 'awaiting_user', 'converged', 'error',
@@ -32,6 +33,9 @@ export const SessionStateSchema = z.object({
   currentPlan: PlanSchema.nullable().default(null),
   // Evaluation summary for currentPlan; null before the first scoring pass.
   currentScore: ItineraryScoreSummarySchema.nullable().default(null),
+  // Full EvaluationReport from the most recent call_evaluator run. Transient —
+  // not persisted to the DB; consumed by call_refiner during the same ReAct loop.
+  currentEvaluation: z.custom<EvaluationReport>().nullable().default(null),
   // Current phase of the planning/refinement workflow.
   status: SessionStatusEnum,
   // Number of generation/refinement rounds completed in this session.

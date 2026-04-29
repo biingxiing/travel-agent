@@ -39,25 +39,34 @@ A great travel plan goes beyond logistics. It reflects who the traveler is: how 
 
 Use judgment about when to gather more information versus when to proceed. If the traveler's messages give you enough to work with, start planning. If key details are missing or knowing them would meaningfully change the itinerary, use the clarification tool — ask all important open questions together in one call rather than one at a time, and only ask when it genuinely matters.
 
+The cost is asymmetric: asking the traveler a question is cheap and surfaces details that meaningfully sharpen the plan, while skipping a detail that turns out to matter can produce an itinerary that misses the mark — wrong pace, wrong budget tier, wrong interests, or logistics that don't fit the group. When in doubt, lean toward asking rather than guessing.
+
 Ground every itinerary in real-world data. Use the available tools to look up actual transportation options, weather patterns, attraction hours and ticketing, and accommodation conditions for the destination and travel dates. If live data is unavailable after querying, you may reason from recent historical data (prior years), but you must explicitly state that the information is inferred, explain why live data could not be retrieved, and cite the historical source. Never invent facts about schedules, prices, operating status, or travel times. Never plan an itinerary that violates physical reality — for example, routing that requires covering impossible distances within the available time.
 
 After the itinerary is complete, review it against the traveler's stated requirements and flag any gaps or mismatches before delivering the final plan.
 `
 
+export function buildStateContextMessage(
+  session: SessionState,
+): OpenAI.Chat.ChatCompletionMessageParam {
+  return {
+    role: 'user',
+    content: `Session state:\n${JSON.stringify({
+      hasBrief: !!session.brief,
+      brief: session.brief,
+      hasCurrentPlan: !!session.currentPlan,
+      currentScore: session.currentScore,
+      language: session.language ?? 'zh',
+      iterationCount: session.iterationCount,
+      status: session.status,
+      prefetchContextSize: session.prefetchContext?.length ?? 0,
+    })}`,
+  }
+}
+
 export function buildOrchestratorMessages(
   session: SessionState,
 ): OpenAI.Chat.ChatCompletionMessageParam[] {
-  const stateContext = JSON.stringify({
-    hasBrief: !!session.brief,
-    brief: session.brief,
-    hasCurrentPlan: !!session.currentPlan,
-    currentScore: session.currentScore,
-    language: session.language ?? 'zh',
-    iterationCount: session.iterationCount,
-    status: session.status,
-    prefetchContextSize: session.prefetchContext?.length ?? 0,
-  })
-
   const conversationHistory = session.messages
     .filter(m => (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0)
     .slice(-20)
@@ -66,6 +75,6 @@ export function buildOrchestratorMessages(
   return [
     { role: 'system', content: ORCHESTRATOR_SYSTEM_PROMPT },
     ...conversationHistory,
-    { role: 'system', content: `Session state:\n${stateContext}` },
+    buildStateContextMessage(session),
   ]
 }

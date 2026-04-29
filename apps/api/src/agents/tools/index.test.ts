@@ -13,7 +13,7 @@ import type { SessionState } from '@travel-agent/shared'
 function baseSession(): SessionState {
   return {
     id: 's1', userId: 'u1', title: null, brief: null,
-    messages: [], currentPlan: null, currentScore: null, status: 'draft',
+    messages: [], currentPlan: null, currentScore: null, currentEvaluation: null, status: 'draft',
     iterationCount: 0, lastRunId: null, pendingClarification: null,
     prefetchContext: [], language: 'zh',
     createdAt: 1, updatedAt: 1,
@@ -21,11 +21,11 @@ function baseSession(): SessionState {
 }
 
 describe('buildOrchestratorMessages', () => {
-  it('produces a static system prompt first and a trailing dynamic state system message', () => {
+  it('produces a static system prompt first and a trailing dynamic state user message', () => {
     const msgs = buildOrchestratorMessages(baseSession())
     expect(msgs[0].role).toBe('system')
     const tail = msgs[msgs.length - 1] as { role: string; content: string }
-    expect(tail.role).toBe('system')
+    expect(tail.role).toBe('user')
     expect(tail.content).toContain('Session state:')
   })
 
@@ -53,7 +53,7 @@ describe('buildOrchestratorMessages', () => {
     expect(msgs[1]).toEqual({ role: 'user', content: '去上海3天' })
     expect(msgs[2]).toEqual({ role: 'assistant', content: '已生成方案' })
     expect(msgs[3]).toEqual({ role: 'user', content: '改一下第2天' })
-    expect((msgs[4] as { role: string }).role).toBe('system')
+    expect((msgs[4] as { role: string }).role).toBe('user')
   })
 
   it('limits conversation history to 20 messages', () => {

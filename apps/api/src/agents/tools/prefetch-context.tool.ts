@@ -41,7 +41,7 @@ export const prefetchContextTool: SubagentTool = {
     })
     return {
       type: 'ok',
-      output: `Prefetched ${context.length} context entries. Use session.prefetchContext when calling call_generator.`,
+      output: `Prefetched ${context.length} context entries; the generator will read them from session automatically. Next, call call_generator (no arguments needed).`,
     }
   },
 }

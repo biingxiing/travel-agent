@@ -292,11 +292,10 @@ async function submitPrompt(value: string) {
         }
       },
       onClose: () => {
-        chatStore.completePlannerResponse(
-          currentPlan.value
-            ? "已为你生成最新方案，右侧可以查看完整行程。"
-            : chatStore.awaitingClarify?.question ?? ""
-        )
+        // Priority: explicit clarification request > plan success > preserve whatever text arrived
+        const message = chatStore.awaitingClarify?.question
+          ?? (currentPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
+        chatStore.completePlannerResponse(message)
       },
       onError: (err) => {
         const message = err instanceof Error ? err.message : "生成出了点问题，稍等一下再发一次吧 🙏"
@@ -529,8 +528,15 @@ onBeforeUnmount(() => {
             :display-score="displayScore"
             :target-score="targetScore"
           />
+          <ClarifyCard
+            v-else-if="awaitingClarify"
+            :question="awaitingClarify.question"
+            :reason="awaitingClarify.reason"
+            :default-suggestion="awaitingClarify.defaultSuggestion"
+            @use-default="onUseDefault"
+          />
           <MaxIterCard
-            v-else-if="!awaitingClarify && canContinue && maxIterReached"
+            v-else-if="canContinue && maxIterReached"
             :max-iterations="maxIterations"
             :current-score="maxIterReached.currentScore"
             :target-score="targetScore"
