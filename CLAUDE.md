@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code when working in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 ## Project Overview
 
@@ -15,8 +15,10 @@ This file provides guidance to Claude Code when working in this repository.
 - `apps/api/src/routes/auth.ts`: login / logout / `auth/me` endpoints.
 - `apps/api/src/routes/sessions.ts`: REST CRUD for sessions plus the SSE endpoints `POST /:id/messages` and `POST /:id/continue` that drive the ReAct loop.
 - `apps/api/src/routes/registry.ts`: read-only inspection of registered skills/agents.
-- `apps/api/src/agents/react-loop.ts`: the orchestrator. Calls extractor → prefetch → generator (initial), then evaluator → generator (refine) until score ≥ `EVAL_THRESHOLD` or `EVAL_MAX_ITER`.
-- `apps/api/src/agents/{extractor,prefetch,generator,evaluator,critic}.ts`: individual ReAct steps. There is no `planner.ts` — planning is split across these five.
+- `apps/api/src/agents/react-loop.ts`: the orchestrator. Runs an LLM tool-call loop (max 10 turns) where the PLANNER_MODEL chooses which `SubagentTool` to call next. Cancellation is via `lastRunId`.
+- `apps/api/src/agents/tools/`: the SubagentTool framework. `types.ts` defines the `SubagentTool` / `EmitFn` / `LoopState` interfaces. `index.ts` exports `ALL_TOOLS` (6 tools), `toOpenAITools`, `ORCHESTRATOR_SYSTEM_PROMPT`, and `buildOrchestratorMessages`. Each tool file wraps one pipeline step: `extract-brief` → `prefetch-context` → `generate-plan` / `refine-plan` → `evaluate-plan` → `ask-clarification`.
+- `apps/api/src/agents/tool-execution.ts`: dispatches a batch of tool calls from the orchestrator. Concurrency-safe tools (`isConcurrencySafe() === true`) run in parallel via `Promise.all`; non-safe tools run serially. Returns aggregated `toolResults` + `shouldHalt` flag.
+- `apps/api/src/agents/{extractor,prefetch,generator,evaluator,critic,clarifier}.ts`: individual agent implementations called by the tools above. There is no `planner.ts` — planning logic is split across these six.
 - `apps/api/src/auth/{config,session,middleware}.ts`: signed-cookie auth (single user via `AUTH_USERNAME` / `AUTH_PASSWORD`); middleware mounted on `sessionsRouter`.
 - `apps/api/src/llm/client.ts`: OpenAI-compatible client. `LLM_BASE_URL` and `LLM_API_KEY` are required at startup (no default).
 - `apps/api/src/registry/*`: built-in skills/agents and optional skill loading from `SKILL_DIRS` directories that contain a `SKILL.md` manifest.
@@ -53,7 +55,7 @@ This file provides guidance to Claude Code when working in this repository.
 - Coverage: `pnpm test:coverage`
 - Migrate the optional Postgres memory store: `pnpm db:migrate:memory` (needs `DATABASE_URL`)
 - Smoke scripts: `pnpm smoke:auth` (HTTP login loop), `pnpm smoke:auth:ui` / `pnpm smoke:planner` / `pnpm smoke:planner:ui` / `pnpm smoke:planner:states` / `pnpm smoke:restore:ui` / `pnpm smoke:planner:guangdong` (all Playwright; require a running stack and a `tests/e2e/` directory of specs — see Working Guidelines)
-- Demo stack: `docker compose up --build` (Caddy on `http://localhost:8080`)
+- Demo stack: `docker compose up --build` (Caddy on `http://localhost:8080`); use `./docker-deploy.sh` first to auto-generate secrets if running for the first time
 
 ## Environment
 
@@ -77,7 +79,7 @@ This file provides guidance to Claude Code when working in this repository.
 
 ## Architecture Notes
 
-- The planning pipeline is a multi-agent ReAct loop driven by `apps/api/src/agents/react-loop.ts`. One pass is: `extractor` (NL → structured `Brief`) → `prefetch` (calls flyai-style skills for transport/lodging/POI) → `generator.runInitial` (first plan) → `evaluator` (rule scoring + LLM critic) → `generator.runRefine`. Refine loops until score ≥ `EVAL_THRESHOLD` or iterations hit `EVAL_MAX_ITER`. Cancellation is via `lastRunId` (a new run on the same session preempts the prior one).
+- The planning pipeline is driven by `apps/api/src/agents/react-loop.ts`. The orchestrator sends `ORCHESTRATOR_SYSTEM_PROMPT` + conversation history + session-state context to `PLANNER_MODEL` with `ALL_TOOLS` available. The model issues tool calls; `executeSubagents` dispatches them (concurrency-batched), and results are appended to the message list for the next turn. The loop runs up to `MAX_TURNS = 10`. The expected tool-call sequence is: `call_extractor` → `call_prefetch_context` → `call_generator` → `call_evaluator` → (optionally) `call_refiner` or `call_clarification`. A new run on the same session preempts the prior one via `lastRunId`.
 - Frontend behavior depends on the SSE event contract from `packages/shared/src/events.ts` (14 variants under `ChatStreamEventSchema`). Keep API emit code and `apps/web/composables/useChatStream.ts` + `apps/web/stores/chat.ts` aligned when changing event names or payloads.
 - Structured itinerary shape lives in `packages/shared/src/plan.ts`. Update shared schemas first when changing plan shape; both apps consume the same zod schema.
 - Chat request/message types live in `packages/shared/src/chat.ts`. Brief and evaluation payloads live in `packages/shared/src/{brief,evaluation,scoring}.ts`.

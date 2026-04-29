@@ -5,7 +5,7 @@ import { generateClarification } from '../clarifier.js'
 
 export const askClarificationTool: SubagentTool = {
   name: 'call_clarifier',
-  description: 'Ask the traveler a single warm clarifying question when any critical planning information is missing or unclear. Use this for missing destination, dates, traveler details (e.g. child age/height for family trips), budget, or any unclear preference that would materially change the itinerary. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message. (brief is read from session automatically; only pass it if you want to override)',
+  description: 'Ask the traveler a single warm clarifying question when a BLOCKING piece of information is missing. BLOCKING means one of: destination is unknown, travel dates are unknown, or traveler count is unknown. DO NOT call this tool when destinations, dates, and traveler count are already known — missing budget, pace, or accommodation style are NOT blockers; the generator uses sensible defaults for those. Emits a clarify_needed event and HALTS the planning loop — do not call any other tool after this in the same run. The loop resumes automatically on the user\'s next message. (brief is read from session automatically; only pass it if you want to override)',
   parametersSchema: {
     type: 'object',
     properties: {

@@ -337,7 +337,18 @@ export const useChatStore = defineStore("chat", {
           this.errorMessage = event.message
           this.agentStatus = '生成失败'
           this.loopStatus = null
-          this.setAssistantContent(event.message)
+          // Remove the blank in-progress assistant bubble and replace it
+          // with an error-styled system bubble so the user sees red error
+          // styling rather than a plain assistant message.
+          if (this.currentMessageId) {
+            this.messages = this.messages.filter((m) => m.id !== this.currentMessageId)
+            this.currentMessageId = ''
+          }
+          this.messages.push({
+            id: `error-${Date.now()}`,
+            role: 'system',
+            content: event.message,
+          })
           this.persistState()
           break
       }
@@ -351,7 +362,17 @@ export const useChatStore = defineStore("chat", {
       this.phase = "error"
       this.errorMessage = message
       this.agentStatus = "生成失败"
-      this.setAssistantContent(message)
+      // Remove the blank in-progress assistant bubble and replace it with
+      // a red error-styled system bubble (uses .bubble-system CSS in ChatPanel).
+      if (this.currentMessageId) {
+        this.messages = this.messages.filter((m) => m.id !== this.currentMessageId)
+        this.currentMessageId = ""
+      }
+      this.messages.push({
+        id: `error-${Date.now()}`,
+        role: "system",
+        content: message,
+      })
       this.persistState()
     },
     completePlannerResponse(message: string) {

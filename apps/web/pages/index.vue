@@ -547,7 +547,7 @@ onBeforeUnmount(() => {
             <section
               ref="mainSplitRef"
               class="main-grid"
-              :class="{ 'is-single-panel': !hasPlanArtifact }"
+              :class="{ 'is-single-panel': !hasPlanArtifact && phase !== 'planning' }"
               :style="mainGridStyle"
             >
               <div class="main-grid-panel main-grid-panel-primary">
@@ -570,7 +570,7 @@ onBeforeUnmount(() => {
                 </ChatPanel>
               </div>
 
-              <template v-if="hasPlanArtifact">
+              <template v-if="hasPlanArtifact || phase === 'planning'">
                 <button
                   type="button"
                   class="main-grid-divider"

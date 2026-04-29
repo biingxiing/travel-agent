@@ -50,7 +50,21 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
     try {
       while (true) {
         const { value, done } = await reader.read()
-        if (done) break
+        if (done) {
+          // Flush any trailing partial SSE frame that lacks a closing \n\n.
+          // This can happen when the server closes the connection immediately
+          // after the final event without appending an extra blank line.
+          if (buffer.trim()) {
+            const dataLine = buffer.split('\n').find((l) => l.startsWith('data:'))
+            if (dataLine) {
+              const json = dataLine.slice(5).trim()
+              try {
+                handlers.onEvent(JSON.parse(json) as ChatStreamEvent)
+              } catch (err) { console.warn('[chatStream] parse failed (trailing frame)', err) }
+            }
+          }
+          break
+        }
         buffer += decoder.decode(value, { stream: true })
         let idx
         while ((idx = buffer.indexOf('\n\n')) !== -1) {

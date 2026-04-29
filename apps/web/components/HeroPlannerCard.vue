@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Sparkles, MapPin, Calendar, DollarSign, ArrowRight } from 'lucide-vue-next'
+import { Sparkles, ArrowRight } from 'lucide-vue-next'
 
 const props = defineProps<{
   loading?: boolean
@@ -52,9 +52,9 @@ function applyPreset(value: string) {
         />
         <div class="hero-composer-row">
           <div class="hero-tags">
-            <span class="hero-tag"><MapPin :size="14" :stroke-width="1.5" />从 北京</span>
-            <span class="hero-tag"><Calendar :size="14" :stroke-width="1.5" />5 天</span>
-            <span class="hero-tag"><DollarSign :size="14" :stroke-width="1.5" />¥ 5,000</span>
+            <!-- Tags are intentionally empty until the Brief has been extracted
+                 from the user's prompt (post-submit). Hardcoded placeholders
+                 were removed to avoid displaying misleading static values. -->
           </div>
           <button
             type="button"

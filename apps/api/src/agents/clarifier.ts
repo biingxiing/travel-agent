@@ -1,18 +1,22 @@
 import { FAST_MODEL } from '../llm/client.js'
 import { loggedCompletion } from '../llm/logger.js'
-import type { TripBrief, Message } from '@travel-agent/shared'
+import type { TripBrief, Message, BlockerType } from '@travel-agent/shared'
 
-type ClarifyReason = 'missing_destination' | 'missing_days' | 'missing_dates'
+type ClarifyReason = BlockerType
 
 interface ClarifyResult {
   question: string
   defaultSuggestion: string | null
 }
 
-const FALLBACKS: Record<ClarifyReason, Record<string, ClarifyResult>> = {
+const FALLBACKS: Partial<Record<ClarifyReason, Record<string, ClarifyResult>>> = {
   missing_destination: {
     zh: { question: '你想去哪里旅行？', defaultSuggestion: null },
     en: { question: 'Where would you like to travel?', defaultSuggestion: null },
+  },
+  missing_origin: {
+    zh: { question: '你从哪个城市出发？', defaultSuggestion: null },
+    en: { question: 'Which city are you departing from?', defaultSuggestion: null },
   },
   missing_days: {
     zh: { question: '你计划玩几天？', defaultSuggestion: '按 5 天规划' },
@@ -21,6 +25,18 @@ const FALLBACKS: Record<ClarifyReason, Record<string, ClarifyResult>> = {
   missing_dates: {
     zh: { question: '你打算什么时候出发？', defaultSuggestion: null },
     en: { question: 'When are you planning to depart?', defaultSuggestion: null },
+  },
+  missing_budget: {
+    zh: { question: '你的旅行预算大概是多少？', defaultSuggestion: null },
+    en: { question: 'What is your approximate travel budget?', defaultSuggestion: null },
+  },
+  unclear_preference: {
+    zh: { question: '能告诉我更多你的旅行偏好吗，比如喜欢自然风光还是城市体验？', defaultSuggestion: null },
+    en: { question: 'Could you tell me more about your travel preferences, e.g. nature or city experiences?', defaultSuggestion: null },
+  },
+  other: {
+    zh: { question: '你还有其他关于这次旅行的具体要求或问题吗？', defaultSuggestion: null },
+    en: { question: 'Do you have any other specific requirements or questions about this trip?', defaultSuggestion: null },
   },
 }
 
@@ -31,8 +47,14 @@ Constraints:
 - Output only the question, no preamble or explanation
 - Write the question in the requested output language`
 
+const DEFAULT_FALLBACK: Record<string, ClarifyResult> = {
+  zh: { question: '能告诉我更多关于这次旅行的信息吗？', defaultSuggestion: null },
+  en: { question: 'Could you tell me more about this trip?', defaultSuggestion: null },
+}
+
 function getFallback(reason: ClarifyReason, language: string): ClarifyResult {
-  return FALLBACKS[reason][language] ?? FALLBACKS[reason]['zh']
+  const byReason = FALLBACKS[reason] ?? DEFAULT_FALLBACK
+  return byReason[language] ?? byReason['zh'] ?? DEFAULT_FALLBACK['zh']
 }
 
 function pad(n: number): string { return n < 10 ? `0${n}` : `${n}` }
@@ -70,7 +92,12 @@ export async function generateClarification(
 ): Promise<ClarifyResult> {
   const fieldLabel =
     reason === 'missing_destination' ? 'travel destination' :
-    reason === 'missing_days' ? 'number of travel days' : 'departure date'
+    reason === 'missing_origin' ? 'departure city' :
+    reason === 'missing_days' ? 'number of travel days' :
+    reason === 'missing_dates' ? 'departure date' :
+    reason === 'missing_budget' ? 'travel budget' :
+    reason === 'unclear_preference' ? 'travel preferences' :
+    'additional trip details'
 
   const userMessage =
     `Known trip info: ${briefSummary(brief)}\n` +

@@ -264,7 +264,12 @@ export async function* runInitial(
   ]
 
   const tools = buildSkillTools()
-  const prepared = await runWithToolLoop(llmMessages, tools)
+  // Skip the tool-call preflight when prefetch data is already present —
+  // the model will not invoke skills again, so the round-trip is a no-op
+  // that wastes ~78 s per run. Go straight to the streaming generation pass.
+  const prepared = prefetchedContext.length > 0
+    ? { content: '', messages: llmMessages }
+    : await runWithToolLoop(llmMessages, tools)
 
   let full = ''
   let nlBuf = ''
@@ -300,7 +305,29 @@ export async function* runInitial(
   }
   if (!inJson && nlBuf.trim()) yield { type: 'token', delta: nlBuf }
 
-  const json = extractJsonCodeBlock(full)
+  let json = extractJsonCodeBlock(full)
+  if (!json) {
+    // Streaming pass ended without a complete JSON code block (e.g. LLM truncated
+    // mid-JSON due to context pressure). Mirror the correction-prompt retry used in
+    // runRefine: ask the model to emit only the JSON code block.
+    try {
+      const retryResp = await loggedCompletion('generator', {
+        model: PLANNER_MODEL,
+        messages: [
+          ...prepared.messages,
+          { role: 'user', content: 'Generate the final itinerary now: natural language intro + ```json code block.' },
+          { role: 'assistant', content: full },
+          { role: 'user', content: 'Your last reply did not contain a complete JSON plan. Output ONLY one ```json``` code block with the complete itinerary, no prose before or after.' },
+        ],
+        tools, tool_choice: 'none',
+        temperature: 0.3,
+      })
+      const retryContent = retryResp.choices[0]?.message?.content ?? ''
+      json = extractJsonCodeBlock(retryContent)
+    } catch (err) {
+      console.warn('[Generator.initial] Correction-prompt retry failed:', err instanceof Error ? err.message : err)
+    }
+  }
   if (!json) {
     yield { type: 'done', messageId }
     return null

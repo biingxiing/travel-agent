@@ -44,7 +44,7 @@ const displayTitle = computed(() => currentPlan.value?.title || "旅行方案")
 const displaySubtitle = computed(() => {
   const plan = currentPlan.value
   if (!plan) return ""
-  return `${plan.destination} · ${plan.days} 天 · ${plan.travelers} 人`
+  return `${(plan.destinations ?? []).join(' / ')} · ${plan.days} 天 · ${plan.travelers} 人`
 })
 
 const displayTips = computed<string[]>(() => currentPlan.value?.tips ?? [])
@@ -103,7 +103,7 @@ const statBudget = computed(() => currentPlan.value?.estimatedBudget?.amount ?? 
 const statCurrency = computed(() => currentPlan.value?.estimatedBudget?.currency ?? "CNY")
 const statTravelers = computed(() => currentPlan.value?.travelers ?? 1)
 const statScore = computed(
-  () => currentScore.value?.overall ?? itineraryScore.value?.total ?? null,
+  () => currentScore.value?.overall ?? itineraryScore.value?.overall ?? null,
 )
 
 const POI_ICON_COMPONENTS: Record<string, unknown> = {
