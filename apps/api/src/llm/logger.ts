@@ -27,6 +27,33 @@ const VERBOSE = process.env.LLM_VERBOSE === 'true'
 
 const MAX_REQUEST_BYTES = 256 * 1024
 
+async function* withIdleTimeout<T>(
+  source: AsyncIterable<T>,
+  idleMs: number,
+): AsyncGenerator<T> {
+  const iter = source[Symbol.asyncIterator]()
+  while (true) {
+    let timer: NodeJS.Timeout | null = null
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => reject(new Error(`LLM stream idle for ${idleMs}ms (no chunk received)`)), idleMs)
+    })
+    try {
+      const result = await Promise.race([iter.next(), timeout])
+      if (timer) clearTimeout(timer)
+      if (result.done) return
+      yield result.value
+    } catch (err) {
+      if (timer) clearTimeout(timer)
+      // Best-effort cancel of the upstream iterator. Don't await — a hung
+      // upstream generator (the very thing we're aborting) can leave
+      // iter.return() pending forever. Fire-and-forget is safe here because
+      // the JS engine will eventually GC the orphaned generator.
+      try { void iter.return?.(undefined) } catch { /* ignore */ }
+      throw err
+    }
+  }
+}
+
 function truncateRequest(req: unknown): unknown {
   const s = JSON.stringify(req)
   if (s.length <= MAX_REQUEST_BYTES) return req
@@ -182,6 +209,7 @@ export async function* loggedStream(
 ): AsyncGenerator<OpenAI.Chat.ChatCompletionChunk> {
   const ctx = getCtx()
   const start = Date.now()
+  const idleMs = Number(process.env.LLM_STREAM_IDLE_MS ?? 60_000)
   const existingStreamOptions = (params as Record<string, unknown>).stream_options
   const paramsWithUsage = {
     ...params,
@@ -204,7 +232,7 @@ export async function* loggedStream(
       ...paramsWithUsage,
       stream: true,
     })
-    for await (const chunk of stream) {
+    for await (const chunk of withIdleTimeout(stream, idleMs)) {
       const delta = chunk.choices[0]?.delta
       content += delta?.content ?? ''
       collectToolCalls(rawToolCalls, delta?.tool_calls)

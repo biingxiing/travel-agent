@@ -289,6 +289,34 @@ describe('loggedStream', () => {
     )
   })
 
+  it('aborts loggedStream when no chunk arrives within the idle timeout', async () => {
+    // Mock a stream that yields one chunk then hangs forever.
+    const stallingStream = (async function*() {
+      yield { choices: [{ delta: { content: 'hi' }, finish_reason: null }] }
+      await new Promise(() => { /* never resolves */ })
+    })()
+    ;(llm.chat.completions.create as any).mockResolvedValue(stallingStream)
+
+    process.env.LLM_STREAM_IDLE_MS = '50'
+    try {
+      const gen = loggedStream('test', {
+        model: 'fake', messages: [{ role: 'user', content: 'x' }],
+      } as any)
+      const collected: any[] = []
+      let error: unknown = null
+      try {
+        for await (const c of gen) collected.push(c)
+      } catch (e) {
+        error = e
+      }
+      expect(collected).toHaveLength(1)
+      expect(error).toBeTruthy()
+      expect(String(error)).toMatch(/idle/i)
+    } finally {
+      delete process.env.LLM_STREAM_IDLE_MS
+    }
+  }, 2000)
+
   it('prints streamed tool_calls in verbose output', async () => {
     vi.resetModules()
     vi.stubEnv('LLM_VERBOSE', 'true')
