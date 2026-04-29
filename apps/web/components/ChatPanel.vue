@@ -175,6 +175,17 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
   color: #991B1B;
 }
 
+.bubble-narration {
+  align-self: flex-start;
+  background: var(--bg-subtle);
+  color: var(--text-muted, #6b7280);
+  border-color: var(--border-subtle-2, var(--border));
+  border-radius: var(--r-md) var(--r-md) var(--r-md) 4px;
+  font-style: italic;
+  max-width: min(640px, 85%);
+  opacity: 0.85;
+}
+
 .bubble-content {
   margin: 0;
   font-family: var(--font-body);

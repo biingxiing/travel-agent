@@ -261,6 +261,18 @@ export const useChatStore = defineStore("chat", {
         case 'tool_reasoning':
           this.reasoningText += event.delta
           break
+        case 'assistant_say': {
+          // A finalized "narration" message — orchestrator told the user something
+          // before invoking a tool. Append as a separate bubble so the final answer
+          // (delivered via 'token') stays visually distinct.
+          this.messages.push({
+            id: `narration-${crypto.randomUUID()}`,
+            role: 'narration',
+            content: event.content,
+          })
+          this.persistState()
+          break
+        }
         case 'plan_partial':
           if (event.plan) {
             ws.currentPlan = event.plan
