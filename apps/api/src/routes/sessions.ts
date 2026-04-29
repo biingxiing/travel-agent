@@ -86,6 +86,7 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown'
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })
+      await send({ type: 'done', messageId: runId })
     } finally {
       if (assistantContent) {
         await sessionStore.appendMessage(id, {
@@ -128,6 +129,7 @@ sessionsRouter.post('/:id/continue', async (c) => {
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown'
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })
+      await send({ type: 'done', messageId: runId })
     } finally {
       await sessionStore.save(fresh)
     }
