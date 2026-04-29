@@ -133,6 +133,19 @@ describe('ChatStreamEventSchema · variant coverage', () => {
     })).toThrow()
   })
 
+  it('parses assistant_say', () => {
+    const e = ChatStreamEventSchema.parse({
+      type: 'assistant_say', content: '正在为你查询酒店…',
+    })
+    expect(e.type).toBe('assistant_say')
+  })
+
+  it('rejects assistant_say with empty content', () => {
+    expect(() => ChatStreamEventSchema.parse({
+      type: 'assistant_say', content: '',
+    })).toThrow()
+  })
+
   it('parses max_iter_reached with full plan payload', () => {
     const e = ChatStreamEventSchema.parse({
       type: 'max_iter_reached', currentScore: 87, plan: minimalPlan,
@@ -192,6 +205,7 @@ describe('ChatStreamEventSchema · round-trip JSON safety', () => {
       { type: 'max_iter_reached', currentScore: 75, plan: minimalPlan },
       { type: 'done', messageId: 'm' },
       { type: 'error', code: 'X', message: 'm' },
+      { type: 'assistant_say', content: '思考一下…' },
     ]
 
     for (const v of variants) {

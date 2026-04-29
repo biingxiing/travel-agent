@@ -59,6 +59,7 @@ export const ChatStreamEventSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('token'), delta: z.string() }),
   z.object({ type: z.literal('tool_reasoning'), delta: z.string() }),
+  z.object({ type: z.literal('assistant_say'), content: z.string().min(1) }),
   z.object({ type: z.literal('plan_partial'), plan: rawPlanShape.deepPartial() }),
   z.object({ type: z.literal('plan'), plan: PlanSchema }),
   FollowupEventSchema,
