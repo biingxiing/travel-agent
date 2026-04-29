@@ -6,6 +6,8 @@ export interface ToolCallBlock {
   id: string
   name: string
   input: Record<string, unknown>
+  /** Set when the LLM emitted malformed JSON for tool arguments — surfaced back to the LLM via tool_result. */
+  parseError?: string
 }
 
 interface Batch {
@@ -41,6 +43,13 @@ async function runOne(
   session: SessionState,
   emit: EmitFn,
 ): Promise<{ id: string; output: string; shouldHalt: boolean }> {
+  if (block.parseError) {
+    return {
+      id: block.id,
+      output: `Error: invalid JSON arguments — ${block.parseError}. Please retry the call with valid JSON matching the tool's parametersSchema.`,
+      shouldHalt: false,
+    }
+  }
   const tool = tools.find(t => t.name === block.name)
   if (!tool) {
     return { id: block.id, output: `Error: unknown tool "${block.name}"`, shouldHalt: false }

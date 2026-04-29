@@ -97,4 +97,13 @@ describe('executeSubagents', () => {
     const { toolResults } = await executeSubagents(blocks, tools, fakeSession, fakeEmit)
     expect(toolResults[0].content).toContain('unknown tool')
   })
+
+  it('returns parseError as tool_result without invoking the tool', async () => {
+    const tool = readTool('a')
+    const blocks = [{ id: '1', name: 'a', input: {}, parseError: 'Unexpected token } at position 5' }]
+    const { toolResults } = await executeSubagents(blocks, [tool], fakeSession, fakeEmit)
+    expect(toolResults[0].content).toContain('invalid JSON arguments')
+    expect(toolResults[0].content).toContain('Unexpected token')
+    expect(tool.call).not.toHaveBeenCalled()
+  })
 })
