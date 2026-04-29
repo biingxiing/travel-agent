@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 const { createMock } = vi.hoisted(() => ({ createMock: vi.fn() }))
 vi.mock('../llm/client.js', () => ({
@@ -26,6 +26,10 @@ async function* streamContent(content: string) {
 }
 
 describe('generator.runRefine', () => {
+  beforeEach(() => {
+    createMock.mockReset()
+  })
+
   it('returns improved plan from JSON output', async () => {
     const newPlan: Plan = {
       title: 't', destinations: ['北京'], days: 1, travelers: 1, pace: 'balanced',
@@ -50,6 +54,36 @@ describe('generator.runRefine', () => {
     const out = await runRefine(original, report, brief)
     expect(out.dailyPlans[0].items).toHaveLength(1)
     expect(out.dailyPlans[0].items[0].title).toBe('CA1234')
+  })
+
+  it('runRefine retries once when first response has no JSON', async () => {
+    const newPlan: Plan = {
+      title: 'retried', destinations: ['北京'], days: 1, travelers: 1, pace: 'balanced',
+      preferences: [], dailyPlans: [{ day: 1, items: [
+        { type: 'transport', title: 'CA1234' },
+      ] }], tips: [], disclaimer: 'x',
+    }
+    // First call: no JSON. Second call (retry): valid plan JSON.
+    createMock
+      .mockResolvedValueOnce(streamContent('I am unable to repair this plan.'))
+      .mockResolvedValueOnce(streamContent('```json\n' + JSON.stringify(newPlan) + '\n```'))
+
+    const original: Plan = { ...newPlan, title: 'original-broken', dailyPlans: [{ day: 1, items: [] }] }
+    const report: EvaluationReport = {
+      ruleScore: { overall: 0, grade: 'poor', transport: { score: 0, count: 0, items: [], grade: 'poor' },
+        lodging: { score: null, count: 0, items: [], grade: 'none' },
+        attraction: { score: null, count: 0, items: [], grade: 'none' },
+        meal: { score: null, count: 0, items: [], grade: 'none' },
+        coverage: { score: 0, daysWithTransport: 0, daysWithLodging: 0, daysWithAttractions: 0, totalDays: 1 },
+        suggestions: [] },
+      llmScore: 0,
+      combined: { overall: 0, transport: 0, lodging: null, attraction: null },
+      blockers: [], itemIssues: [], globalIssues: [], converged: false,
+    }
+    const brief: TripBrief = { destinations: ['北京'], days: 1, travelers: 1, preferences: [] }
+    const out = await runRefine(original, report, brief)
+    expect(createMock).toHaveBeenCalledTimes(2)
+    expect(out.title).toBe('retried')
   })
 
   it('runRefine accepts prefetchContext instead of messages', async () => {

@@ -126,6 +126,16 @@ function extractJsonCodeBlock(content: string): string | null {
   return m?.[1] ?? null
 }
 
+function tryParsePlan(content: string): Plan | null {
+  const json = (extractJsonCodeBlock(content) ?? content).trim()
+  if (!json || (json[0] !== '{' && json[0] !== '[')) return null
+  try {
+    return PlanSchema.parse(normalizePlanJson(JSON.parse(json)))
+  } catch {
+    return null
+  }
+}
+
 function normalizePace(raw: unknown): 'relaxed' | 'balanced' | 'packed' | undefined {
   if (raw === 'relaxed' || raw === 'balanced' || raw === 'packed') return raw
   if (typeof raw !== 'string') return undefined
@@ -245,7 +255,7 @@ export async function* runInitial(
   const systemPrompt = SYSTEM_PROMPT_INITIAL.replace('OUTPUT_LANGUAGE', resolveLanguageLabel(language))
 
   const prefetchedMessages: OpenAI.Chat.ChatCompletionMessageParam[] = prefetchedContext.map(
-    (content) => ({ role: 'system' as const, content }),
+    (content) => ({ role: 'user' as const, content: `[Prefetch data for reference]\n${content}` }),
   )
   const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
     { role: 'system', content: systemPrompt },
@@ -263,7 +273,7 @@ export async function* runInitial(
     model: PLANNER_MODEL,
     messages: [
       ...prepared.messages,
-      { role: 'system', content: 'Generate the final itinerary now: natural language intro + ```json code block.' },
+      { role: 'user', content: 'Generate the final itinerary now: natural language intro + ```json code block.' },
     ],
     tools, tool_choice: 'none',
     temperature: 0.7,
@@ -340,16 +350,26 @@ export async function runRefine(
 
   const tools = buildSkillTools()
   const prepared = await runWithToolLoop(llmMessages, tools)
-  const rawJson = extractJsonCodeBlock(prepared.content) ?? prepared.content
-  const json = rawJson?.trim()
-  if (!json || (json[0] !== '{' && json[0] !== '[')) {
-    console.warn(`[Generator.refine] No JSON in output (len=${prepared.content?.length ?? 0}), returning original`)
-    return current
+  let parsed = tryParsePlan(prepared.content)
+  if (!parsed) {
+    try {
+      const resp = await loggedCompletion('generator', {
+        model: PLANNER_MODEL,
+        messages: [
+          ...prepared.messages,
+          { role: 'assistant', content: prepared.content },
+          { role: 'user', content: 'Your last reply did not contain a valid JSON plan. Output ONLY one ```json``` code block with the complete repaired plan, no prose before or after.' },
+        ],
+        tools, tool_choice: 'none',
+        temperature: 0.3,
+      })
+      const retryContent = resp.choices[0]?.message?.content ?? ''
+      parsed = tryParsePlan(retryContent)
+    } catch (err) {
+      console.warn('[Generator.refine] Retry call failed:', err instanceof Error ? err.message : err)
+    }
   }
-  try {
-    return PlanSchema.parse(normalizePlanJson(JSON.parse(json)))
-  } catch (err) {
-    console.warn('[Generator.refine] Parse failed, returning original:', err)
-    return current
-  }
+  if (parsed) return parsed
+  console.warn(`[Generator.refine] Parse failed after retry (raw len=${prepared.content?.length ?? 0}), returning original`)
+  return current
 }
