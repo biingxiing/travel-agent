@@ -109,7 +109,7 @@ function baseSession(): SessionState {
   return {
     id: 's1', userId: 'u1', title: null, brief: null,
     messages: [{ role: 'user', content: '北京 3 天', timestamp: 1 }],
-    currentPlan: null, currentScore: null, status: 'draft',
+    currentPlan: null, currentScore: null, currentEvaluation: null, status: 'draft',
     iterationCount: 0, lastRunId: 'r1', pendingClarification: null,
     prefetchContext: [], language: 'zh',
     createdAt: 1, updatedAt: 1,
@@ -170,8 +170,8 @@ describe('runReactLoop (ReAct)', () => {
 
     // clarify_needed emitted directly via emit fn (not yielded from generator)
     expect(emittedEvents.some(e => e.type === 'clarify_needed')).toBe(true)
-    // Loop halts — no done event
-    expect(yieldedEvents.some(e => e.type === 'done')).toBe(false)
+    // Loop halts but still emits done so the frontend exits loading state
+    expect(yieldedEvents.some(e => e.type === 'done')).toBe(true)
     expect(session.status).toBe('awaiting_user')
   })
 
@@ -195,7 +195,7 @@ describe('runReactLoop (ReAct)', () => {
     const events = await collect(runReactLoop(session, 'r1', noopEmit))
 
     // Loop should stop after the cancellation check
-    expect(events.some(e => e.type === 'done')).toBe(false)
+    expect(events.some(e => e.type === 'done')).toBe(true)
   })
 
   it('emits max_iter_reached when MAX_TURNS exceeded', async () => {
@@ -213,6 +213,91 @@ describe('runReactLoop (ReAct)', () => {
 
     const events = await collect(runReactLoop(session, 'r1', noopEmit))
     expect(events.some(e => e.type === 'max_iter_reached')).toBe(true)
+    expect(events.some(e => e.type === 'done')).toBe(true)
     expect(session.status).toBe('awaiting_user')
+  })
+
+  it('emits assistant_say when orchestrator narrates AND calls a tool', async () => {
+    ;(extractBrief as any).mockResolvedValue({
+      brief: sampleBrief(), intent: 'new', changedFields: [],
+    })
+    ;(loggedStream as any)
+      .mockImplementationOnce(() => makeChunks(
+        [{ id: 'tc1', name: 'call_extractor', args: '{"messages":[]}' }],
+        '让我先理解一下你的需求…',
+      ))
+      .mockImplementationOnce(() => makeChunks([], 'Done!'))
+
+    const session = baseSession()
+    const emitted: any[] = []
+    await collect(runReactLoop(session, 'r1', async (e) => { emitted.push(e) }))
+
+    const sayEvents = emitted.filter(e => e.type === 'assistant_say')
+    expect(sayEvents).toHaveLength(1)
+    expect(sayEvents[0].content).toBe('让我先理解一下你的需求…')
+  })
+
+  it('does not emit assistant_say when content is empty', async () => {
+    ;(extractBrief as any).mockResolvedValue({
+      brief: sampleBrief(), intent: 'new', changedFields: [],
+    })
+    ;(loggedStream as any)
+      .mockImplementationOnce(() => makeChunks(
+        [{ id: 'tc1', name: 'call_extractor', args: '{"messages":[]}' }],
+        '',
+      ))
+      .mockImplementationOnce(() => makeChunks([], 'Done!'))
+
+    const session = baseSession()
+    const emitted: any[] = []
+    await collect(runReactLoop(session, 'r1', async (e) => { emitted.push(e) }))
+
+    expect(emitted.some(e => e.type === 'assistant_say')).toBe(false)
+  })
+
+  it('passes parseError to tool_result when tool args are malformed JSON', async () => {
+    ;(loggedStream as any)
+      .mockImplementationOnce(() => makeChunks([{
+        id: 'tc1', name: 'call_extractor', args: '{not valid json',
+      }]))
+      .mockImplementationOnce(() => makeChunks([], 'Recovered!'))
+
+    const session = baseSession()
+    await collect(runReactLoop(session, 'r1', noopEmit))
+
+    // Extractor must NOT have been called — parseError short-circuits it
+    expect(extractBrief).not.toHaveBeenCalled()
+  })
+
+  it('emits done on MAX_TURNS exit', async () => {
+    ;(loggedStream as any).mockImplementation(() => makeChunks([{
+      id: 'tc1', name: 'call_extractor', args: '{"messages":[]}',
+    }]))
+    ;(extractBrief as any).mockResolvedValue({
+      brief: sampleBrief(), intent: 'new', changedFields: [],
+    })
+
+    const session = baseSession()
+    const events = await collect(runReactLoop(session, 'r1', noopEmit))
+    expect(events.some(e => e.type === 'done')).toBe(true)
+  })
+
+  it('emits done when cancelled mid-loop', async () => {
+    const session = baseSession()
+    let callCount = 0
+    ;(loggedStream as any).mockImplementation(async function*() {
+      callCount++
+      if (callCount === 1) {
+        yield* makeChunks([{ id: 'tc1', name: 'call_extractor', args: '{"messages":[]}' }])
+      } else {
+        yield* makeChunks([], 'unreached')
+      }
+    })
+    ;(extractBrief as any).mockImplementation(async () => {
+      session.lastRunId = 'r2'
+      return { brief: sampleBrief(), intent: 'new', changedFields: [] }
+    })
+    const events = await collect(runReactLoop(session, 'r1', noopEmit))
+    expect(events.some(e => e.type === 'done')).toBe(true)
   })
 })

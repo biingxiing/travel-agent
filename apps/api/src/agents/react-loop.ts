@@ -4,7 +4,7 @@ import type OpenAI from 'openai'
 import { PLANNER_MODEL } from '../llm/client.js'
 import { loggedStream } from '../llm/logger.js'
 import type { SessionState, ChatStreamEvent } from '@travel-agent/shared'
-import { ALL_TOOLS, toOpenAITools, buildOrchestratorMessages } from './tools/index.js'
+import { ALL_TOOLS, toOpenAITools, buildOrchestratorMessages, buildStateContextMessage } from './tools/index.js'
 import type { EmitFn, LoopState } from './tools/types.js'
 import { executeSubagents } from './tool-execution.js'
 import type { ToolCallBlock } from './tool-execution.js'
@@ -13,6 +13,7 @@ const MAX_TURNS = 10
 
 async function streamOrchestrator(
   state: LoopState,
+  session: SessionState,
   emit: EmitFn,
 ): Promise<{
   assistantMessage: OpenAI.Chat.ChatCompletionMessageParam
@@ -23,9 +24,18 @@ async function streamOrchestrator(
   const rawToolCalls = new Map<number, { id: string; name: string; arguments: string }>()
   const openAITools = toOpenAITools(state.tools)
 
+  // Refresh the trailing state-context message so the orchestrator sees current
+  // session values (brief, prefetchContextSize, etc.) set by prior tool calls.
+  const msgs = state.messages
+  const freshCtx = buildStateContextMessage(session)
+  const last = msgs[msgs.length - 1]
+  const messages = (last?.role === 'user' && typeof last.content === 'string' && last.content.startsWith('Session state:'))
+    ? [...msgs.slice(0, -1), freshCtx]
+    : [...msgs, freshCtx]
+
   for await (const chunk of loggedStream('orchestrator', {
     model: PLANNER_MODEL,
-    messages: state.messages,
+    messages,
     tools: openAITools,
     tool_choice: 'auto',
     temperature: 0.3,
@@ -35,7 +45,10 @@ async function streamOrchestrator(
 
     if (delta.content) {
       fullContent += delta.content
-      await emit({ type: 'tool_reasoning', delta: delta.content } as any)
+      // Per-chunk live preview (kept for future foldable "thinking" UI).
+      // Final user-visible emission happens after the stream ends, based on
+      // whether tool calls follow.
+      await emit({ type: 'tool_reasoning', delta: delta.content } as ChatStreamEvent)
     }
 
     if (delta.tool_calls) {
@@ -57,8 +70,15 @@ async function streamOrchestrator(
 
   const toolCalls: ToolCallBlock[] = toolCallsList.map(tc => {
     let input: Record<string, unknown> = {}
-    try { input = JSON.parse(tc.arguments || '{}') } catch { /* malformed JSON */ }
-    return { id: tc.id, name: tc.name, input }
+    let parseError: string | undefined
+    try {
+      input = tc.arguments ? JSON.parse(tc.arguments) : {}
+    } catch (err) {
+      parseError = err instanceof Error ? err.message : String(err)
+    }
+    return parseError
+      ? { id: tc.id, name: tc.name, input, parseError }
+      : { id: tc.id, name: tc.name, input }
   })
 
   const assistantMessage: OpenAI.Chat.ChatCompletionMessageParam = toolCalls.length > 0
@@ -93,13 +113,17 @@ export async function* runReactLoop(
   }
 
   while (state.turnCount < MAX_TURNS) {
-    if (isCancelled(session, runId)) return
+    if (isCancelled(session, runId)) {
+      yield { type: 'done', messageId: randomUUID() }
+      return
+    }
 
-    const { assistantMessage, toolCalls, fullContent } = await streamOrchestrator(state, emit)
+    const { assistantMessage, toolCalls, fullContent } = await streamOrchestrator(state, session, emit)
+    const trimmed = fullContent.trim()
 
-    // No tool calls → orchestrator responded directly with text
+    // No tool calls → orchestrator responded directly with text → final answer.
     if (toolCalls.length === 0) {
-      if (fullContent) {
+      if (trimmed) {
         await emit({ type: 'token', delta: fullContent })
       }
       session.status = 'converged'
@@ -108,13 +132,24 @@ export async function* runReactLoop(
       return
     }
 
-    if (isCancelled(session, runId)) return
+    // Tool calls present → narrative is a separate user-visible message.
+    if (trimmed) {
+      await emit({ type: 'assistant_say', content: fullContent })
+    }
+
+    if (isCancelled(session, runId)) {
+      yield { type: 'done', messageId: randomUUID() }
+      return
+    }
 
     const { toolResults, shouldHalt } = await executeSubagents(
       toolCalls, state.tools, session, emit,
     )
 
-    if (shouldHalt) return
+    if (shouldHalt) {
+      yield { type: 'done', messageId: randomUUID() }
+      return
+    }
 
     const toolResultMessages: OpenAI.Chat.ChatCompletionMessageParam[] = toolResults.map(r => ({
       role: 'tool' as const,
@@ -138,4 +173,5 @@ export async function* runReactLoop(
       plan: session.currentPlan,
     }
   }
+  yield { type: 'done', messageId: randomUUID() }
 }
