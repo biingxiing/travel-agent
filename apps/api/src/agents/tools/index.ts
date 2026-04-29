@@ -42,11 +42,31 @@ A great travel plan goes beyond logistics. It reflects who the traveler is: how 
 Ground every itinerary in real-world data. Use the available tools to look up actual transportation options, weather patterns, attraction hours and ticketing, and accommodation conditions for the destination and travel dates. If live data is unavailable after querying, you may reason from recent historical data (prior years), but you must explicitly state that the information is inferred, explain why live data could not be retrieved, and cite the historical source. Never invent facts about schedules, prices, operating status, or travel times. Never plan an itinerary that violates physical reality — for example, routing that requires covering impossible distances within the available time.
 
 After the itinerary is complete, review it against the traveler's stated requirements and flag any gaps or mismatches before delivering the final plan.
+
+**Error recovery rule:** If call_generator returns a transient error (e.g. "Tool error: LLM stream idle"), retry call_generator immediately. Do NOT call call_prefetch — when prefetchContextSize > 0 the prefetch data is already in session and re-running call_prefetch wastes time without adding new data.
+
+**Post-evaluator rule (MANDATORY):** After call_evaluator returns:
+- If converged=true: stop tool calls and emit ONLY a single short sentence in Chinese (30 characters or fewer). Do NOT reproduce the itinerary. Do NOT use markdown headers, bullet points, or bold text. Example: '行程规划已完成，祝您旅途愉快！'
+- If converged=false: your ONLY valid next action is call_refiner. You MUST NOT emit plain text, MUST NOT call call_clarifier, and MUST NOT summarise the evaluation results in prose. Producing free-text narrative instead of calling call_refiner when converged=false is a critical error that bypasses the refinement loop entirely.
 `
 
 export function buildStateContextMessage(
   session: SessionState,
 ): OpenAI.Chat.ChatCompletionMessageParam {
+  // Derive a more accurate phase from what is actually populated in the session
+  // rather than relying on session.status, which stays 'draft' throughout the
+  // entire ReAct loop and is only updated at the very end.
+  let loopPhase: string
+  if (session.currentScore) {
+    loopPhase = 'scored'
+  } else if (session.currentPlan) {
+    loopPhase = 'planned'
+  } else if (session.brief) {
+    loopPhase = 'briefed'
+  } else {
+    loopPhase = 'draft'
+  }
+
   return {
     role: 'user',
     content: `Session state:\n${JSON.stringify({
@@ -57,6 +77,7 @@ export function buildStateContextMessage(
       language: session.language ?? 'zh',
       iterationCount: session.iterationCount,
       status: session.status,
+      loopPhase,
       prefetchContextSize: session.prefetchContext?.length ?? 0,
     })}`,
   }

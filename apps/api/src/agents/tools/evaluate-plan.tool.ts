@@ -5,7 +5,7 @@ import { evaluate } from '../evaluator.js'
 
 export const evaluatePlanTool: SubagentTool = {
   name: 'call_evaluator',
-  description: 'Score the travel plan and return an EvaluationReport with {combined: {overall, transport, lodging, attraction}, blockers, itemIssues, converged}. Call after call_generator or call_refiner. Reads plan and brief from session automatically — invoke with no arguments. Act on the result: converged=true → stop and write confirmation; blockers exist → call call_clarifier; score below threshold → call call_refiner if not yet called this run, otherwise stop. Call at most twice per run.',
+  description: 'Score the travel plan and return an EvaluationReport with {combined: {overall, transport, lodging, attraction}, blockers, itemIssues, converged}. Call after call_generator or call_refiner. Reads plan and brief from session automatically — invoke with no arguments. STRICT result handling — you MUST follow these rules exactly, no exceptions:\n- converged=true → call no further tools; write a brief confirmation message to the user.\n- converged=false (score below threshold) → you MUST call call_refiner immediately. Do NOT emit any plain-text response, do NOT call call_clarifier, do NOT summarise the evaluation in prose. The only valid next action is call_refiner.\n- If blockers include missing_budget or other informational gaps, pass them to call_refiner as context; call_refiner will handle them. Never ask the user for clarification mid-loop via plain text.\nCall at most twice per run.',
   parametersSchema: {
     type: 'object',
     properties: {

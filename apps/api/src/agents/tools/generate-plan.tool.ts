@@ -5,7 +5,7 @@ import { runInitial } from '../generator.js'
 
 export const generatePlanTool: SubagentTool = {
   name: 'call_generator',
-  description: 'Create the initial multi-day travel itinerary from the TripBrief and real-world prefetch data. Only for first-time plan creation — to fix an existing plan use call_refiner instead. Requires call_extractor and call_prefetch to have run first. Reads brief and prefetch data from session automatically — invoke with no arguments. Streams the itinerary to the client as it generates. After this, call call_evaluator to score the result.',
+  description: 'Create the initial multi-day travel itinerary from the TripBrief and real-world prefetch data. Only for first-time plan creation — to fix an existing plan use call_refiner instead. Requires call_extractor and call_prefetch to have run first. Reads brief and prefetch data from session automatically — invoke with no arguments. Streams the itinerary to the client as it generates. After this, call call_evaluator to score the result. If this tool returns a "Tool error: LLM stream idle" message, retry call_generator immediately — do NOT call call_prefetch again. The prefetch data is already in session.',
   parametersSchema: {
     type: 'object',
     properties: {

@@ -4,6 +4,7 @@ import type {
 } from '@travel-agent/shared'
 
 const SESSION_STORAGE_KEY = 'ta_sessionId'
+const PLAN_STORAGE_KEY = 'ta_currentPlan'
 
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
@@ -38,11 +39,24 @@ export const useWorkspaceStore = defineStore('workspace', {
       } else {
         sessionStorage.removeItem(SESSION_STORAGE_KEY)
       }
+      if (this.currentPlan) {
+        sessionStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(this.currentPlan))
+      } else {
+        sessionStorage.removeItem(PLAN_STORAGE_KEY)
+      }
     },
 
     hydrateFromSessionStorage() {
       if (typeof window === 'undefined') return
       this.sessionId = sessionStorage.getItem(SESSION_STORAGE_KEY)
+      const rawPlan = sessionStorage.getItem(PLAN_STORAGE_KEY)
+      if (rawPlan) {
+        try {
+          this.currentPlan = JSON.parse(rawPlan)
+        } catch {
+          sessionStorage.removeItem(PLAN_STORAGE_KEY)
+        }
+      }
     },
   },
 })

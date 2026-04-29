@@ -85,11 +85,11 @@ function catScoreLabel(cat: CategoryScore): string {
               class="score-cat-fill"
               :style="{
                 width: `${score.coverage.score}%`,
-                background: gradeColor(score.grade),
+                background: gradeColor(score.coverage.grade),
               }"
             />
           </div>
-          <span class="score-cat-value data-tag" :style="{ color: gradeColor(score.grade) }">
+          <span class="score-cat-value data-tag" :style="{ color: gradeColor(score.coverage.grade) }">
             {{ score.coverage.score }}
           </span>
         </div>

@@ -68,6 +68,6 @@ describe('workspace landing layout styles', () => {
     expect(block).toContain('flex: 1;')
     expect(block).toContain('height: 100%;')
     expect(block).toContain('display: flex;')
-    expect(block).toContain('justify-content: center;')
+    expect(block).toContain('justify-content: flex-start;')
   })
 })

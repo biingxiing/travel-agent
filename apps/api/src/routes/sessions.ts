@@ -11,6 +11,37 @@ import type { ChatStreamEvent } from '@travel-agent/shared'
 export const sessionsRouter = new Hono()
 sessionsRouter.use('*', authMiddleware)
 
+/**
+ * Strip raw LLM preamble + JSON code blocks from assistant content before
+ * persisting to session history. The generator emits 1-2 natural language
+ * sentences followed by a ```json block; we keep only the prose preamble if
+ * short, or replace with a clean placeholder when a JSON block is present so
+ * reloaded sessions don't show "下面是可直接使用的完整 JSON：".
+ */
+function sanitizeAssistantContent(content: string): string {
+  if (!content) return content
+  // If it contains a JSON code block, drop everything from the ``` marker
+  // and replace with a clean summary placeholder.
+  if (content.includes('```json')) {
+    const prose = content.slice(0, content.indexOf('```json')).trim()
+    // If the prose ends with a colon (e.g. "…下面是可直接使用的完整 JSON："),
+    // it's part of the preamble pattern — discard it too.
+    if (!prose || prose.endsWith('：') || prose.endsWith(':')) {
+      return '✅ 行程已生成'
+    }
+    return prose
+  }
+  // Strip plain markdown dumps: if the content contains markdown formatting
+  // indicators (**bold**, ## headers, or list items), or is a long multi-line
+  // block, replace with a clean placeholder.
+  const hasMarkdown = content.includes('**') || content.includes('## ') || /^- /m.test(content)
+  const isLongMultiline = content.length > 300 && content.includes('\n')
+  if (hasMarkdown || isLongMultiline) {
+    return '✅ 行程已生成'
+  }
+  return content
+}
+
 const SendMessageSchema = z.object({
   content: z.string().min(1),
   language: z.string().optional(),
@@ -90,7 +121,7 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
     } finally {
       if (assistantContent) {
         await sessionStore.appendMessage(id, {
-          role: 'assistant', content: assistantContent, timestamp: Date.now(),
+          role: 'assistant', content: sanitizeAssistantContent(assistantContent), timestamp: Date.now(),
         })
       }
       await sessionStore.save(fresh)
@@ -120,18 +151,28 @@ sessionsRouter.post('/:id/continue', async (c) => {
     const send = async (e: ChatStreamEvent) => {
       await stream.writeSSE({ data: JSON.stringify(e), event: e.type })
     }
+    let assistantContent = ''
+    const sendAndCollect = async (e: ChatStreamEvent) => {
+      if (e.type === 'token') assistantContent += e.delta
+      await send(e)
+    }
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
-      const sendDirect = async (e: ChatStreamEvent) => { await send(e) }
       await withSessionContext(fresh.id, runId, async () => {
-        for await (const ev of runReactLoop(fresh, runId, sendDirect)) await send(ev)
+        for await (const ev of runReactLoop(fresh, runId, sendAndCollect)) await send(ev)
       })
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'unknown'
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })
       await send({ type: 'done', messageId: runId })
     } finally {
+      if (assistantContent) {
+        await sessionStore.appendMessage(id, {
+          role: 'assistant', content: sanitizeAssistantContent(assistantContent), timestamp: Date.now(),
+        })
+      }
       await sessionStore.save(fresh)
     }
   })
 })
+

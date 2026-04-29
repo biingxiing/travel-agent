@@ -302,7 +302,9 @@ export const useChatStore = defineStore("chat", {
         }
         case 'plan':
           ws.currentPlan = event.plan
+          ws.persistState()
           this.plan = event.plan
+          this.agentStatus = '正在评估行程…'
           this.awaitingClarify = null
           this.maxIterReached = null
           this.persistState()

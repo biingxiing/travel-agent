@@ -41,6 +41,7 @@ test('smoke: end-to-end planner', async ({ page }) => {
   await page.fill('input[type="password"]', AUTH_PASSWORD);
   await page.click('button[type="submit"]');
   await page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 });
+  await page.waitForSelector('[data-testid="workspace"], .prompt-composer, textarea', { timeout: 10000 }).catch(() => {});
   await page.screenshot({ path: path.join(SS, 'test-planner-02-empty.png') });
 
   // 2. Reset to clean state, then wait for hero input

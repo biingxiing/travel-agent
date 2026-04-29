@@ -313,6 +313,11 @@ async function onContinue() {
     onEvent: (event) => {
       chatStore.handleStreamEvent(event)
     },
+    onClose: () => {
+      const message = chatStore.awaitingClarify?.question
+        ?? (currentPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
+      chatStore.completePlannerResponse(message)
+    },
     onError: (err) => {
       const message = err instanceof Error ? err.message : "继续优化失败，请稍后再试。"
       chatStore.setRequestError(message)

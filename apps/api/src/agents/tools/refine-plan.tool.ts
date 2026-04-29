@@ -31,6 +31,7 @@ export const refinePlanTool: SubagentTool = {
     await emit({ type: 'agent_step', agent: 'generator', status: 'refining' })
     const refined = await runRefine(plan, report, brief, prefetchContext, language)
     session.currentPlan = refined
+    session.currentScore = null
     session.iterationCount = (session.iterationCount ?? 0) + 1
     await emit({ type: 'plan', plan: refined })
     await emit({ type: 'agent_step', agent: 'generator', status: 'done' })

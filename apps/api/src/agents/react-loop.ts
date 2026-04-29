@@ -121,8 +121,36 @@ export async function* runReactLoop(
     const { assistantMessage, toolCalls, fullContent } = await streamOrchestrator(state, session, emit)
     const trimmed = fullContent.trim()
 
-    // No tool calls → orchestrator responded directly with text → final answer.
+    // No tool calls → orchestrator responded with plain text (no further tool
+    // calls). Treat as genuine convergence only when the session score actually
+    // meets the threshold — this guards against the LLM erroneously producing
+    // a narrative response instead of calling call_refiner when converged=false.
     if (toolCalls.length === 0) {
+      const score = session.currentScore
+      const evaluation = session.currentEvaluation
+      // If we have an evaluation that explicitly says not converged, the LLM
+      // has violated the post-evaluator rule by emitting prose instead of
+      // calling call_refiner. Treat this as a max-iter exit rather than
+      // convergence so the frontend shows "Continue Optimization" instead of
+      // locking the session.
+      const evaluationSaysNotConverged = evaluation != null && !evaluation.converged
+      if (evaluationSaysNotConverged) {
+        // Emit the text as a narrative bubble so the user can see it, but do
+        // not mark the session as converged.
+        if (trimmed) {
+          await emit({ type: 'assistant_say', content: fullContent })
+        }
+        session.status = 'awaiting_user'
+        if (session.currentPlan && score) {
+          yield {
+            type: 'max_iter_reached',
+            currentScore: score.overall,
+            plan: session.currentPlan,
+          }
+        }
+        yield { type: 'done', messageId: randomUUID() }
+        return
+      }
       if (trimmed) {
         await emit({ type: 'token', delta: fullContent })
       }
@@ -132,10 +160,12 @@ export async function* runReactLoop(
       return
     }
 
-    // Tool calls present → narrative is a separate user-visible message.
-    if (trimmed) {
-      await emit({ type: 'assistant_say', content: fullContent })
-    }
+    // Tool calls present → any narrative text is internal orchestrator reasoning
+    // that has leaked alongside the tool invocation. Do NOT surface it to the
+    // user as an assistant_say bubble — it often contains confusing fragments
+    // like "下面是可直接使用的完整 JSON：" that make no sense in the chat panel.
+    // assistant_say is only emitted when the LLM produces text with NO tool calls
+    // (see the toolCalls.length === 0 branches above).
 
     if (isCancelled(session, runId)) {
       yield { type: 'done', messageId: randomUUID() }

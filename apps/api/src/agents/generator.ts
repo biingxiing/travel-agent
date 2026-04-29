@@ -14,6 +14,8 @@ const MAX_SKILL_ROUNDS = 4
 // Keep this const module-level so the string reference is stable.
 const SYSTEM_PROMPT_INITIAL = `You are a professional travel planner. Based on the TripBrief and any prefetched real-world data provided in system messages, generate a complete JSON itinerary.
 
+**CRITICAL: Your response MUST contain exactly one JSON code block (starting with \`\`\`json and ending with \`\`\`). A response without a JSON code block is INVALID and will be rejected. Do not write prose itineraries — put all content inside the JSON structure.**
+
 ## Input Guidelines
 - System messages may contain "Real flight/hotel/POI data". These are actual results already fetched via flyai. Use them directly when filling PlanItems.
 - Do NOT say "I cannot check real-time" — real data has already been provided. Fill items from it directly.
@@ -21,7 +23,8 @@ const SYSTEM_PROMPT_INITIAL = `You are a professional travel planner. Based on t
 - If you need supplementary data, call a flyai tool (command: search-flight, search-hotel, search-poi, search-train). Otherwise skip the tool call.
 
 ## Output Format
-- Start with 1–2 natural language sentences telling the user you are planning, then output exactly ONE \`\`\`json code block.
+- **REQUIRED FIRST**: Output exactly ONE \`\`\`json code block. This is mandatory — no exceptions.
+- You may include 1–2 natural language sentences BEFORE the \`\`\`json block, but the JSON block must always be present.
 - If destinations or days are missing, ask in natural language; do not output JSON.
 - Every day in dailyPlans[].items MUST contain at least 3 items. Empty arrays are invalid.
 
@@ -60,8 +63,8 @@ PlanItem fields:
 - type: "attraction" | "meal" | "transport" | "lodging" | "activity" | "note"  (English enum only)
 - title: string
 - description: string — must meet requirements above per item type
-- duration?: string
-- cost?: number
+- durationMinutes?: number  (integer minutes, e.g. 120 for a 2-hour visit — do NOT use a string like "2 hours")
+- estimatedCost?: { amount: number, currency: string }  (e.g. {"amount": 120, "currency": "CNY"} — do NOT use a flat 'cost' number)
 
 ## Quality Standards
 - Budget total must be internally consistent with item prices.
@@ -169,6 +172,10 @@ function normalizePlanItem(item: Record<string, unknown>): Record<string, unknow
     out.title = typeof out.description === 'string' && out.description
       ? (out.description as string).slice(0, 40)
       : '未命名'
+  }
+  // Bridge generator's flat `cost: number` to PlanItemSchema's `estimatedCost` shape
+  if (typeof out.cost === 'number' && !out.estimatedCost) {
+    out.estimatedCost = { amount: out.cost, currency: 'CNY' }
   }
   return out
 }
@@ -310,22 +317,28 @@ export async function* runInitial(
     // Streaming pass ended without a complete JSON code block (e.g. LLM truncated
     // mid-JSON due to context pressure). Mirror the correction-prompt retry used in
     // runRefine: ask the model to emit only the JSON code block.
+    // Use loggedStream (not loggedCompletion) so the idle watchdog is active —
+    // loggedCompletion has no timeout guard and can hang indefinitely on a stalled backend.
     try {
-      const retryResp = await loggedCompletion('generator', {
+      let retryContent = ''
+      for await (const chunk of loggedStream('generator', {
         model: PLANNER_MODEL,
         messages: [
           ...prepared.messages,
-          { role: 'user', content: 'Generate the final itinerary now: natural language intro + ```json code block.' },
+          { role: 'user', content: 'Generate the final itinerary now: natural language intro + ' + '```json code block.' },
           { role: 'assistant', content: full },
-          { role: 'user', content: 'Your last reply did not contain a complete JSON plan. Output ONLY one ```json``` code block with the complete itinerary, no prose before or after.' },
+          { role: 'user', content: 'Your last reply did not contain a complete JSON plan. Output ONLY one ' + '```json```' + ' code block with the complete itinerary, no prose before or after.' },
         ],
         tools, tool_choice: 'none',
         temperature: 0.3,
-      })
-      const retryContent = retryResp.choices[0]?.message?.content ?? ''
+        max_tokens: 8192,
+      })) {
+        retryContent += chunk.choices[0]?.delta?.content ?? ''
+      }
       json = extractJsonCodeBlock(retryContent)
     } catch (err) {
       console.warn('[Generator.initial] Correction-prompt retry failed:', err instanceof Error ? err.message : err)
+      // Return null gracefully so the orchestrator can retry call_generator.
     }
   }
   if (!json) {

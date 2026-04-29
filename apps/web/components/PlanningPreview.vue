@@ -93,6 +93,32 @@ const itineraryScore = computed<ItineraryScore | null>(() =>
   currentPlan.value ? scorePlan(currentPlan.value) : null,
 )
 
+// When the API evaluator has returned a score, override the overall value and
+// any per-category scores it provides. The API ItineraryScoreSummary contains
+// numeric values for transport, lodging, and attraction — merge those into the
+// richer client-side CategoryScore objects so the bars reflect the server's
+// blended (rule + LLM critic) scores, not just the client-side rule scores.
+const displayScore = computed<ItineraryScore | null>(() => {
+  if (!itineraryScore.value) return null
+  if (currentScore.value == null) return itineraryScore.value
+  const api = currentScore.value
+  // Start with client-side scores as the base structure, then selectively
+  // override with API values wherever the API returned a non-null number.
+  return {
+    ...itineraryScore.value,
+    overall: api.overall,
+    transport: api.transport != null
+      ? { ...itineraryScore.value.transport, score: api.transport, grade: itineraryScore.value.transport.grade }
+      : itineraryScore.value.transport,
+    lodging: api.lodging != null
+      ? { ...itineraryScore.value.lodging, score: api.lodging, grade: itineraryScore.value.lodging.grade }
+      : itineraryScore.value.lodging,
+    attraction: api.attraction != null
+      ? { ...itineraryScore.value.attraction, score: api.attraction, grade: itineraryScore.value.attraction.grade }
+      : itineraryScore.value.attraction,
+  }
+})
+
 const itemScoreMap = computed<Map<string, ItemScore>>(() => {
   if (!currentPlan.value || !itineraryScore.value) return new Map()
   return buildItemScoreMap(currentPlan.value, itineraryScore.value)
@@ -103,7 +129,7 @@ const statBudget = computed(() => currentPlan.value?.estimatedBudget?.amount ?? 
 const statCurrency = computed(() => currentPlan.value?.estimatedBudget?.currency ?? "CNY")
 const statTravelers = computed(() => currentPlan.value?.travelers ?? 1)
 const statScore = computed(
-  () => currentScore.value?.overall ?? itineraryScore.value?.overall ?? null,
+  () => displayScore.value?.overall ?? null,
 )
 
 const POI_ICON_COMPONENTS: Record<string, unknown> = {
@@ -219,7 +245,7 @@ void currentScore
         </div>
       </section>
 
-      <ItineraryScore v-if="itineraryScore" :score="itineraryScore" />
+      <ItineraryScore v-if="displayScore" :score="displayScore" />
 
       <div class="workspace-grid">
         <section class="preview-card">
