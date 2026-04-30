@@ -13,8 +13,8 @@ import type { SessionState } from '@travel-agent/shared'
 function baseSession(): SessionState {
   return {
     id: 's1', userId: 'u1', title: null, brief: null,
-    messages: [], currentPlan: null, currentScore: null, currentEvaluation: null, status: 'draft',
-    iterationCount: 0, lastRunId: null, pendingClarification: null,
+    messages: [], currentPlan: null, status: 'draft',
+    lastRunId: null, pendingClarification: null,
     prefetchContext: [], language: 'zh',
     createdAt: 1, updatedAt: 1,
   }
