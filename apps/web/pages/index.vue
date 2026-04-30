@@ -655,6 +655,14 @@ onBeforeUnmount(() => {
                 </div>
               </template>
             </section>
+
+            <div v-if="!hasPlanArtifact && phase === 'planning'" class="mobile-planning-preview">
+              <PlanningPreview
+                :agent-status="agentStatus"
+                :error-message="errorMessage"
+                :phase="phase"
+              />
+            </div>
           </section>
         </template>
       </div>

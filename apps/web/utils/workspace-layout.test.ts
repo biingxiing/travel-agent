@@ -124,4 +124,17 @@ describe('progressive results panel layout', () => {
     expect(hydrateCallMatches).not.toBeNull()
     expect(hydrateCallMatches).toHaveLength(2)
   })
+
+  it('keeps a mobile-only planning preview fallback before the first final plan exists', () => {
+    expect(indexPage).toContain('<div v-if="!hasPlanArtifact && phase === \'planning\'" class="mobile-planning-preview">')
+
+    const desktopBlock = extractBlock(mainCss, '.mobile-planning-preview')
+    expect(desktopBlock).toBeTruthy()
+    expect(desktopBlock).toContain('display: none;')
+
+    const mobileBlock = extractBlock(mainCss, '@media (max-width: 980px)')
+    expect(mobileBlock).toBeTruthy()
+    expect(mobileBlock).toContain('.mobile-planning-preview {')
+    expect(mobileBlock).toContain('display: block;')
+  })
 })

@@ -1091,6 +1091,10 @@ body.is-panel-resizing .main-grid-panel-primary { transition: none; }
   animation: plan-panel-reveal 200ms var(--ease-out) both;
 }
 
+.mobile-planning-preview {
+  display: none;
+}
+
 @keyframes plan-panel-reveal {
   from {
     opacity: 0;
@@ -2380,6 +2384,10 @@ body.is-panel-resizing .main-grid-panel-primary { transition: none; }
   .main-grid-panel:not(.main-grid-panel-primary) { flex: auto; }
 
   .main-grid-divider { display: none; }
+
+  .mobile-planning-preview {
+    display: block;
+  }
 
   .workspace-grid { grid-template-columns: 1fr; }
 
