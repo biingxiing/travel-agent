@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../prefetch.js', () => ({
+vi.mock('../../prefetch.js', () => ({
   prefetchFlyaiContext: vi.fn(),
 }))
 
-vi.mock('../../llm/client.js', () => ({
+vi.mock('../../../llm/client.js', () => ({
   llm: { chat: { completions: { create: vi.fn() } } },
   FAST_MODEL: 'fake-fast',
   PLANNER_MODEL: 'fake-plan',
 }))
 
 import { prefetchContextTool } from './prefetch-context.tool.js'
-import { prefetchFlyaiContext } from '../prefetch.js'
+import { prefetchFlyaiContext } from '../../prefetch.js'
 import type { SessionState, TripBrief } from '@travel-agent/shared'
 
 function baseSession(): SessionState {

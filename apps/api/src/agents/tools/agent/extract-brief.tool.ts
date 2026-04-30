@@ -1,7 +1,7 @@
 // apps/api/src/agents/tools/extract-brief.tool.ts
-import type { SubagentTool, SubagentResult, EmitFn } from './types.js'
+import type { SubagentTool, SubagentResult, EmitFn } from '../types.js'
 import type { SessionState, TripBrief } from '@travel-agent/shared'
-import { extractBrief, type ExtractIntent } from '../extractor.js'
+import { extractBrief, type ExtractIntent } from '../../extractor.js'
 
 type CachedExtraction = {
   signature: string

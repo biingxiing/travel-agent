@@ -1,7 +1,7 @@
 // apps/api/src/agents/tools/ask-clarification.tool.ts
-import type { SubagentTool, SubagentResult, EmitFn } from './types.js'
+import type { SubagentTool, SubagentResult, EmitFn } from '../types.js'
 import type { SessionState, TripBrief, BlockerType } from '@travel-agent/shared'
-import { generateClarification } from '../clarifier.js'
+import { generateClarification } from '../../clarifier.js'
 
 export const askClarificationTool: SubagentTool = {
   name: 'call_clarifier',

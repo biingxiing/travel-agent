@@ -1,17 +1,17 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-vi.mock('../clarifier.js', () => ({
+vi.mock('../../clarifier.js', () => ({
   generateClarification: vi.fn(),
 }))
 
-vi.mock('../../llm/client.js', () => ({
+vi.mock('../../../llm/client.js', () => ({
   llm: { chat: { completions: { create: vi.fn() } } },
   FAST_MODEL: 'fake-fast',
   PLANNER_MODEL: 'fake-plan',
 }))
 
 import { askClarificationTool } from './ask-clarification.tool.js'
-import { generateClarification } from '../clarifier.js'
+import { generateClarification } from '../../clarifier.js'
 import type { SessionState, TripBrief } from '@travel-agent/shared'
 
 function baseSession(): SessionState {

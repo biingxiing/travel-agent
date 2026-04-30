@@ -1,7 +1,7 @@
 // apps/api/src/agents/tools/generate-plan.tool.ts
-import type { SubagentTool, SubagentResult, EmitFn } from './types.js'
+import type { SubagentTool, SubagentResult, EmitFn } from '../types.js'
 import type { SessionState, ChatStreamEvent } from '@travel-agent/shared'
-import { runInitial } from '../generator.js'
+import { runInitial } from '../../generator.js'
 
 export const generatePlanTool: SubagentTool = {
   name: 'call_generator',

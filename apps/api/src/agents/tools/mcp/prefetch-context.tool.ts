@@ -1,7 +1,7 @@
 // apps/api/src/agents/tools/prefetch-context.tool.ts
-import type { SubagentTool, SubagentResult, EmitFn } from './types.js'
+import type { SubagentTool, SubagentResult, EmitFn } from '../types.js'
 import type { SessionState, TripBrief } from '@travel-agent/shared'
-import { prefetchFlyaiContext } from '../prefetch.js'
+import { prefetchFlyaiContext } from '../../prefetch.js'
 
 export const prefetchContextTool: SubagentTool = {
   name: 'call_prefetch',
