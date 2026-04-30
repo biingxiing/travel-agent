@@ -94,10 +94,12 @@ describe('progressive results panel layout', () => {
     const gridBlock = extractBlock(mainCss, '.main-grid')
     const primaryBlock = extractBlock(mainCss, '.main-grid-panel-primary')
     const singlePanelBlock = extractBlock(mainCss, '.main-grid.is-single-panel .main-grid-panel-primary')
+    const resizingPrimaryBlock = extractBlock(mainCss, 'body.is-panel-resizing .main-grid-panel-primary')
     const secondaryBlock = extractBlock(mainCss, '.main-grid-panel-secondary')
 
     expect(gridBlock).toBeTruthy()
     expect(gridBlock).toContain('--main-grid-left: 46%;')
+    expect(indexPage).toContain('const leftPanelWidth = ref(46)')
 
     expect(primaryBlock).toBeTruthy()
     expect(primaryBlock).toContain('flex: 0 0 var(--main-grid-left);')
@@ -105,6 +107,9 @@ describe('progressive results panel layout', () => {
 
     expect(singlePanelBlock).toBeTruthy()
     expect(singlePanelBlock).toContain('flex-basis: 100%;')
+
+    expect(resizingPrimaryBlock).toBeTruthy()
+    expect(resizingPrimaryBlock).toContain('transition: none;')
 
     expect(secondaryBlock).toBeTruthy()
     expect(secondaryBlock).toContain('animation: plan-panel-reveal 200ms var(--ease-out) both;')

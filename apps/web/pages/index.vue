@@ -55,7 +55,7 @@ const { sessionId: workspaceSessionId, currentPlan } = storeToRefs(workspaceStor
 const logoutPending = ref(false)
 const sidebarOpen = ref(false)
 const mainSplitRef = ref<HTMLElement | null>(null)
-const leftPanelWidth = ref(42)
+const leftPanelWidth = ref(46)
 const isResizingSplit = ref(false)
 let stopActiveResize: (() => void) | null = null
 const hasConversation = computed(() => messages.value.length > 1)

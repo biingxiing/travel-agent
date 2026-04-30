@@ -1085,6 +1085,7 @@ body.is-panel-resizing { user-select: none; }
 
 .main-grid-panel:not(.main-grid-panel-primary) { flex: 1 1 0; }
 .main-grid.is-single-panel .main-grid-panel-primary { flex-basis: 100%; }
+body.is-panel-resizing .main-grid-panel-primary { transition: none; }
 
 .main-grid-panel-secondary {
   animation: plan-panel-reveal 200ms var(--ease-out) both;
