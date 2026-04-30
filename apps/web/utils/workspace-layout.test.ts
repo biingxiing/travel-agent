@@ -71,3 +71,43 @@ describe('workspace landing layout styles', () => {
     expect(block).toContain('justify-content: flex-start;')
   })
 })
+
+describe('progressive results panel layout', () => {
+  it('derives the plan-panel reveal signal from the final plan plus hydrated result fallback', () => {
+    expect(indexPage).toMatch(
+      /const hasPlanArtifact = computed\(\(\) => Boolean\(\s*chatPlan\.value \|\| \(phase\.value === ["']result["'] && currentPlan\.value\)\s*\)\)/,
+    )
+  })
+
+  it('keeps the main grid single-panel until that reveal signal becomes truthy', () => {
+    expect(indexPage).toContain(`:class="{ 'is-single-panel': !hasPlanArtifact }"`)
+    expect(indexPage).not.toContain(`:class="{ 'is-single-panel': !hasPlanArtifact && phase !== 'planning' }"`)
+  })
+
+  it('renders the divider and right panel only after the first final plan exists', () => {
+    expect(indexPage).toContain('<template v-if="hasPlanArtifact">')
+    expect(indexPage).not.toContain(`<template v-if="hasPlanArtifact || phase === 'planning'">`)
+    expect(indexPage).toContain('class="main-grid-panel main-grid-panel-secondary"')
+  })
+
+  it('uses a 46/54 split with a reveal animation for the secondary panel', () => {
+    const gridBlock = extractBlock(mainCss, '.main-grid')
+    const primaryBlock = extractBlock(mainCss, '.main-grid-panel-primary')
+    const singlePanelBlock = extractBlock(mainCss, '.main-grid.is-single-panel .main-grid-panel-primary')
+    const secondaryBlock = extractBlock(mainCss, '.main-grid-panel-secondary')
+
+    expect(gridBlock).toBeTruthy()
+    expect(gridBlock).toContain('--main-grid-left: 46%;')
+
+    expect(primaryBlock).toBeTruthy()
+    expect(primaryBlock).toContain('flex: 0 0 var(--main-grid-left);')
+    expect(primaryBlock).toContain('transition: flex-basis 200ms var(--ease-out);')
+
+    expect(singlePanelBlock).toBeTruthy()
+    expect(singlePanelBlock).toContain('flex-basis: 100%;')
+
+    expect(secondaryBlock).toBeTruthy()
+    expect(secondaryBlock).toContain('animation: plan-panel-reveal 200ms var(--ease-out) both;')
+    expect(mainCss).toContain('@keyframes plan-panel-reveal')
+  })
+})
