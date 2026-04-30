@@ -115,4 +115,13 @@ describe('progressive results panel layout', () => {
     expect(secondaryBlock).toContain('animation: plan-panel-reveal 200ms var(--ease-out) both;')
     expect(mainCss).toContain('@keyframes plan-panel-reveal')
   })
+
+  it('passes session.currentPlan into chat history hydration at both restore call sites', () => {
+    const hydrateCallMatches = indexPage.match(
+      /chatStore\.hydrateFromSessionMessages\(session\.messages,\s*session\.currentPlan\)/g,
+    )
+
+    expect(hydrateCallMatches).not.toBeNull()
+    expect(hydrateCallMatches).toHaveLength(2)
+  })
 })
