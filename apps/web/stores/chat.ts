@@ -76,17 +76,49 @@ function normalizeMessages(messages: ChatMessage[] | undefined) {
   return messages.filter((message) => message && typeof message.id === "string" && typeof message.content === "string")
 }
 
-function sanitizePersistedState(payload: PersistedChatState) {
-  const messages = normalizeMessages(payload.messages).filter((message) =>
-    message.content.trim().length > 0 || message.id === welcomeMessage.id,
-  )
+function sanitizeAssistantHistoryContent(content: string) {
+  if (!content) return content
+
+  if (content.includes("```json")) {
+    const prose = content.slice(0, content.indexOf("```json")).trim()
+    if (!prose || prose.endsWith("：") || prose.endsWith(":")) {
+      return "✅ 行程已生成"
+    }
+    return prose
+  }
+
+  const hasMarkdown = content.includes("**") || content.includes("## ") || /^- /m.test(content)
+  const isLongMultiline = content.length > 300 && content.includes("\n")
+
+  if (hasMarkdown || isLongMultiline) {
+    return "✅ 行程已生成"
+  }
+
+  return content
+}
+
+function sanitizeHistoryMessage(message: ChatMessage): ChatMessage {
+  if (message.role !== "assistant") {
+    return message
+  }
+
+  return {
+    ...message,
+    content: sanitizeAssistantHistoryContent(message.content),
+  }
+}
+
+export function sanitizePersistedState(payload: PersistedChatState) {
   const plan = payload.plan ?? null
   const hasPlan = Boolean(plan)
-  const nextPhase =
-    payload.phase === "planning"
-      ? hasPlan
-        ? "result"
-        : "idle"
+  const messages = normalizeMessages(payload.messages)
+    .map(sanitizeHistoryMessage)
+    .filter((message) => !hasPlan || message.role !== "system")
+    .filter((message) => message.content.trim().length > 0 || message.id === welcomeMessage.id)
+  const nextPhase = hasPlan
+    ? "result"
+    : payload.phase === "planning"
+      ? "idle"
       : payload.phase
 
   return {
@@ -94,13 +126,13 @@ function sanitizePersistedState(payload: PersistedChatState) {
     draft: typeof payload.draft === "string" ? payload.draft : "",
     phase: nextPhase,
     agentStatus:
-      typeof payload.agentStatus === "string" && payload.agentStatus
-        ? payload.agentStatus
-        : hasPlan
-          ? "登录后继续调整行程"
+      hasPlan
+        ? "登录后继续调整行程"
+        : typeof payload.agentStatus === "string" && payload.agentStatus
+          ? payload.agentStatus
           : "准备开始",
     streamSteps: Array.isArray(payload.streamSteps) ? payload.streamSteps.filter((item) => typeof item === "string") : [],
-    errorMessage: typeof payload.errorMessage === "string" ? payload.errorMessage : "",
+    errorMessage: hasPlan ? "" : (typeof payload.errorMessage === "string" ? payload.errorMessage : ""),
     messages: messages.length > 0 ? messages : [welcomeMessage],
     plan,
     pendingSelections: Array.isArray(payload.pendingSelections) ? payload.pendingSelections : [],
@@ -191,6 +223,7 @@ export const useChatStore = defineStore("chat", {
           role: m.role as Role,
           content: m.content,
         }))
+        .map(sanitizeHistoryMessage)
       this.resetTransientState()
       this.phase = history.length > 0 ? 'result' : 'idle'
       this.agentStatus = history.length > 0 ? '上次行程已加载' : '准备开始'
@@ -332,6 +365,7 @@ export const useChatStore = defineStore("chat", {
           if (event.converged) {
             this.canContinue = false
             ws.status = 'converged'
+            this.agentStatus = '规划完成'
           }
           break
         case 'error':

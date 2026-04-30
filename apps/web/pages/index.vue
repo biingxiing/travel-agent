@@ -298,13 +298,31 @@ async function submitPrompt(value: string) {
         chatStore.completePlannerResponse(message)
       },
       onError: (err) => {
-        const message = err instanceof Error ? err.message : "生成出了点问题，稍等一下再发一次吧 🙏"
-        chatStore.setRequestError(message)
+        const raw = err instanceof Error ? err.message : ''
+        const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
+        const message = isNetworkError
+          ? '连接中断，请重试'
+          : (raw || '请求出错，请重试')
+        // If a plan is already rendered, preserve it — only show the error in
+        // the chat bubble, do NOT switch to the error phase (which clears the plan).
+        if (currentPlan.value) {
+          chatStore.completePlannerResponse(message)
+        } else {
+          chatStore.setRequestError(message)
+        }
       },
     })
   } catch (error) {
-    const message = error instanceof Error ? error.message : "生成出了点问题，稍等一下再发一次吧 🙏"
-    chatStore.setRequestError(message)
+    const raw = error instanceof Error ? error.message : ''
+    const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
+    const message = isNetworkError
+      ? '连接中断，请重试'
+      : (raw || '请求出错，请重试')
+    if (currentPlan.value) {
+      chatStore.completePlannerResponse(message)
+    } else {
+      chatStore.setRequestError(message)
+    }
   }
 }
 
@@ -319,8 +337,18 @@ async function onContinue() {
       chatStore.completePlannerResponse(message)
     },
     onError: (err) => {
-      const message = err instanceof Error ? err.message : "继续优化失败，请稍后再试。"
-      chatStore.setRequestError(message)
+      const raw = err instanceof Error ? err.message : ''
+      const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
+      const message = isNetworkError
+        ? '连接中断，请重试'
+        : (raw || '继续优化失败，请稍后再试。')
+      // Preserve the rendered plan if it already exists — only append the
+      // error as a chat bubble rather than switching to the error phase.
+      if (currentPlan.value) {
+        chatStore.completePlannerResponse(message)
+      } else {
+        chatStore.setRequestError(message)
+      }
     },
   })
 }

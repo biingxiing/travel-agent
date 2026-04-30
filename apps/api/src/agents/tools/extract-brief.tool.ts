@@ -7,7 +7,7 @@ type CachedExtraction = {
   signature: string
   result: { brief: TripBrief; intent: ExtractIntent; changedFields: string[] }
 }
-const extractionCache = new Map<string, CachedExtraction>()
+const extractionCache = new WeakMap<SessionState, CachedExtraction>()
 
 export const extractBriefTool: SubagentTool = {
   name: 'call_extractor',
@@ -37,7 +37,7 @@ export const extractBriefTool: SubagentTool = {
     // description still tells it to skip the call, but this is a defense for
     // when it doesn't.
     const signature = JSON.stringify(userMessages)
-    const cached = extractionCache.get(session.id)
+    const cached = extractionCache.get(session)
     if (cached && cached.signature === signature && session.brief) {
       return { type: 'ok', output: JSON.stringify(cached.result) }
     }
@@ -49,7 +49,7 @@ export const extractBriefTool: SubagentTool = {
     }))
     const result = await extractBrief(msgs, session.brief ?? null)
     session.brief = result.brief
-    extractionCache.set(session.id, { signature, result })
+    extractionCache.set(session, { signature, result })
     return { type: 'ok', output: JSON.stringify(result) }
   },
 }

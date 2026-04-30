@@ -99,5 +99,6 @@ export const ChatStreamEventSchema = z.discriminatedUnion('type', [
     usage: z.object({ prompt: z.number(), completion: z.number() }).optional(),
   }),
   z.object({ type: z.literal('error'), code: z.string(), message: z.string() }),
+  z.object({ type: z.literal('heartbeat') }),
 ])
 export type ChatStreamEvent = z.infer<typeof ChatStreamEventSchema>

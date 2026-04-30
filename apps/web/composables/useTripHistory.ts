@@ -51,10 +51,19 @@ function writeIndex(entries: TripHistoryEntry[]): void {
 
 export const coverForDestination = destinationColor
 
-function entryFromSession(session: SessionState): TripHistoryEntry | null {
+export function entryFromSession(session: SessionState): TripHistoryEntry | null {
   if (!session?.id) return null
   const plan: Plan | null = session.currentPlan ?? null
   const brief = session.brief
+  const hasRecoverableBrief = Array.isArray(brief?.destinations) && brief.destinations.length > 0
+  const hasNamedTitle = typeof session.title === "string" && session.title.trim().length > 0
+
+  // Drop unrecoverable draft shells from the visible history. These are usually
+  // aborted/failed sessions with only a raw user message and no parsed brief or plan.
+  if (!plan && !hasRecoverableBrief && !hasNamedTitle) {
+    return null
+  }
+
   const dests: string[] = brief?.destinations ?? plan?.destinations ?? []
   const destination = dests.length > 1 ? dests.join(' / ') : (dests[0] ?? '')
   const title =

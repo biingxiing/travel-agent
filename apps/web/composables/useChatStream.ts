@@ -16,6 +16,8 @@ export interface ChatStreamSession {
   loadSession: (id: string) => Promise<{ session: SessionState }>
 }
 
+const CHAT_STREAM_IDLE_TIMEOUT_MS = 240_000
+
 export function useChatStream(initialSessionId: string | null = null): ChatStreamSession {
   const { resolveApiBase } = useApiBase()
   let sessionId: string | null = initialSessionId
@@ -47,9 +49,27 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
     const reader = resp.body.getReader()
     const decoder = new TextDecoder()
     let buffer = ''
+
+    const readWithTimeout = async () => {
+      let timer: ReturnType<typeof setTimeout> | null = null
+
+      try {
+        return await Promise.race([
+          reader.read(),
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => reject(new Error('规划生成超时，请重试。')), CHAT_STREAM_IDLE_TIMEOUT_MS)
+          }),
+        ])
+      } finally {
+        if (timer) {
+          clearTimeout(timer)
+        }
+      }
+    }
+
     try {
       while (true) {
-        const { value, done } = await reader.read()
+        const { value, done } = await readWithTimeout()
         if (done) {
           // Flush any trailing partial SSE frame that lacks a closing \n\n.
           // This can happen when the server closes the connection immediately
@@ -59,7 +79,10 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
             if (dataLine) {
               const json = dataLine.slice(5).trim()
               try {
-                handlers.onEvent(JSON.parse(json) as ChatStreamEvent)
+                const parsed = JSON.parse(json) as ChatStreamEvent
+                if ((parsed as { type: string }).type !== 'heartbeat') {
+                  handlers.onEvent(parsed)
+                }
               } catch (err) { console.warn('[chatStream] parse failed (trailing frame)', err) }
             }
           }
@@ -74,12 +97,22 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
           if (!dataLine) continue
           const json = dataLine.slice(5).trim()
           try {
-            handlers.onEvent(JSON.parse(json) as ChatStreamEvent)
+            const parsed = JSON.parse(json) as ChatStreamEvent
+            if ((parsed as { type: string }).type !== 'heartbeat') {
+              handlers.onEvent(parsed)
+            }
           } catch (err) { console.warn('[chatStream] parse failed', err) }
         }
       }
       handlers.onClose?.()
-    } catch (err) { handlers.onError?.(err) }
+    } catch (err) {
+      try {
+        await reader.cancel()
+      } catch {
+        // Ignore best-effort stream cancellation errors.
+      }
+      handlers.onError?.(err)
+    }
   }
 
   async function sendMessage(content: string, handlers: ChatStreamHandlers, language = 'zh') {

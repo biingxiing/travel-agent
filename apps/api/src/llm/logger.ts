@@ -209,7 +209,7 @@ export async function* loggedStream(
 ): AsyncGenerator<OpenAI.Chat.ChatCompletionChunk> {
   const ctx = getCtx()
   const start = Date.now()
-  const idleMs = Number(process.env.LLM_STREAM_IDLE_MS ?? 60_000)
+  const idleMs = Number(process.env.LLM_STREAM_IDLE_MS ?? 120_000)
   const existingStreamOptions = (params as Record<string, unknown>).stream_options
   const paramsWithUsage = {
     ...params,

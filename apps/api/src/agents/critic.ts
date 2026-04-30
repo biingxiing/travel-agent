@@ -60,6 +60,7 @@ export async function criticReview(plan: Plan, brief: TripBrief, language = 'zh'
       model: FAST_MODEL,
       messages: llmMessages,
       temperature: 0.2,
+      reasoning_effort: 'high',
     })
     firstContent = resp.choices[0]?.message?.content ?? ''
   } catch (err) {
@@ -76,6 +77,7 @@ export async function criticReview(plan: Plan, brief: TripBrief, language = 'zh'
         { role: 'user', content: 'Your last reply was not valid JSON. Output ONLY one JSON object matching the schema, no prose, no code fences.' },
       ],
       temperature: 0.2,
+      reasoning_effort: 'high',
     })
     return resp.choices[0]?.message?.content ?? ''
   }

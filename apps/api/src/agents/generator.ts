@@ -9,6 +9,7 @@ import type OpenAI from 'openai'
 import type { SkillManifest } from '../registry/types.js'
 
 const MAX_SKILL_ROUNDS = 4
+const GENERATOR_REASONING_EFFORT = 'low' as const
 
 // Static prefix — must be identical across calls for LLM prefix caching.
 // Keep this const module-level so the string reference is stable.
@@ -225,6 +226,7 @@ async function runWithToolLoop(
     const resp = await loggedCompletion('generator', {
       model: PLANNER_MODEL, messages: current, tools, tool_choice: 'auto',
       temperature: 0.3,
+      reasoning_effort: GENERATOR_REASONING_EFFORT,
     })
     const msg = resp.choices[0]?.message
     if (!msg) return { content: '', messages: current }
@@ -289,6 +291,7 @@ export async function* runInitial(
     ],
     tools, tool_choice: 'none',
     temperature: 0.7,
+    reasoning_effort: GENERATOR_REASONING_EFFORT,
   })) {
     const delta = chunk.choices[0]?.delta?.content ?? ''
     if (!delta) continue
@@ -332,6 +335,7 @@ export async function* runInitial(
         tools, tool_choice: 'none',
         temperature: 0.3,
         max_tokens: 8192,
+        reasoning_effort: GENERATOR_REASONING_EFFORT,
       })) {
         retryContent += chunk.choices[0]?.delta?.content ?? ''
       }
@@ -402,6 +406,7 @@ export async function runRefine(
         ],
         tools, tool_choice: 'none',
         temperature: 0.3,
+        reasoning_effort: GENERATOR_REASONING_EFFORT,
       })
       const retryContent = resp.choices[0]?.message?.content ?? ''
       parsed = tryParsePlan(retryContent)
@@ -410,6 +415,7 @@ export async function runRefine(
     }
   }
   if (parsed) return parsed
-  console.warn(`[Generator.refine] Parse failed after retry (raw len=${prepared.content?.length ?? 0}), returning original`)
-  return current
+  const rawLen = prepared.content?.length ?? 0
+  console.warn('[Generator.refine] Parse failed after retry (raw len=' + rawLen + '), throwing RefineFailedError')
+  throw new Error('RefineFailedError: Both streaming attempts produced unparseable/truncated JSON (raw len=' + rawLen + '). The plan was NOT updated.')
 }

@@ -17,7 +17,7 @@ vi.mock('../registry/skill-registry.js', () => ({
   },
 }))
 
-import { runRefine } from './generator.js'
+import { runInitial, runRefine } from './generator.js'
 import type { Plan, EvaluationReport, TripBrief } from '@travel-agent/shared'
 
 async function* streamContent(content: string) {
@@ -109,5 +109,58 @@ describe('generator.runRefine', () => {
     // Should not throw — no messages param
     const result = await runRefine(mockPlan, mockReport, mockBrief, ['prefetch data'])
     expect(result).toBeDefined()
+  })
+
+  it('runInitial uses low reasoning effort for streaming generation', async () => {
+    const plan: Plan = {
+      title: 'streamed',
+      destinations: ['北京'],
+      days: 1,
+      travelers: 1,
+      pace: 'balanced',
+      preferences: [],
+      dailyPlans: [{ day: 1, items: [{ type: 'meal', title: '早餐' }, { type: 'activity', title: '散步' }, { type: 'lodging', title: '酒店' }] }],
+      tips: [],
+      disclaimer: 'x',
+    }
+    createMock.mockResolvedValueOnce(streamContent('```json\n' + JSON.stringify(plan) + '\n```'))
+
+    const brief: TripBrief = { destinations: ['北京'], days: 1, travelers: 1, preferences: [] }
+    const gen = runInitial(brief, ['prefetch data'])
+    while (true) {
+      const next = await gen.next()
+      if (next.done) break
+    }
+
+    expect(createMock).toHaveBeenCalledTimes(1)
+    expect(createMock.mock.calls[0]?.[0]?.reasoning_effort).toBe('low')
+  })
+
+  it('runInitial keeps low reasoning effort on correction retry', async () => {
+    const plan: Plan = {
+      title: 'retried-initial',
+      destinations: ['北京'],
+      days: 1,
+      travelers: 1,
+      pace: 'balanced',
+      preferences: [],
+      dailyPlans: [{ day: 1, items: [{ type: 'meal', title: '早餐' }, { type: 'activity', title: '散步' }, { type: 'lodging', title: '酒店' }] }],
+      tips: [],
+      disclaimer: 'x',
+    }
+    createMock
+      .mockResolvedValueOnce(streamContent('只有说明，没有 JSON'))
+      .mockResolvedValueOnce(streamContent('```json\n' + JSON.stringify(plan) + '\n```'))
+
+    const brief: TripBrief = { destinations: ['北京'], days: 1, travelers: 1, preferences: [] }
+    const gen = runInitial(brief, ['prefetch data'])
+    while (true) {
+      const next = await gen.next()
+      if (next.done) break
+    }
+
+    expect(createMock).toHaveBeenCalledTimes(2)
+    expect(createMock.mock.calls[0]?.[0]?.reasoning_effort).toBe('low')
+    expect(createMock.mock.calls[1]?.[0]?.reasoning_effort).toBe('low')
   })
 })

@@ -29,7 +29,18 @@ export const refinePlanTool: SubagentTool = {
       ? inp.language
       : (session.language ?? 'zh')
     await emit({ type: 'agent_step', agent: 'generator', status: 'refining' })
-    const refined = await runRefine(plan, report, brief, prefetchContext, language)
+    let refined: Awaited<ReturnType<typeof runRefine>>
+    try {
+      refined = await runRefine(plan, report, brief, prefetchContext, language)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      await emit({ type: 'agent_step', agent: 'generator', status: 'done' })
+      // Do NOT update session.currentPlan or reset session.currentScore — the plan is unchanged.
+      return {
+        type: 'ok',
+        output: 'Refiner failed to produce a valid plan (' + msg + '). Retry call_refiner or call call_generator for a fresh plan.',
+      }
+    }
     session.currentPlan = refined
     session.currentScore = null
     session.iterationCount = (session.iterationCount ?? 0) + 1
