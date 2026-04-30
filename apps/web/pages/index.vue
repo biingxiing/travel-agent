@@ -360,7 +360,7 @@ async function loadHistoryEntry(entry: TripHistoryEntry) {
     stream.setSessionId(session.id)
     workspaceStore.hydrateFromSession(session)
     workspaceStore.persistState()
-    chatStore.hydrateFromSessionMessages(session.messages)
+    chatStore.hydrateFromSessionMessages(session.messages, session.currentPlan)
     chatStore.setSession(session.id)
   } catch (err) {
     const isNotFound = err instanceof Error && err.message.includes('404')
@@ -420,7 +420,7 @@ async function restoreActiveSession() {
     stream.setSessionId(session.id)
     workspaceStore.hydrateFromSession(session)
     workspaceStore.persistState()
-    chatStore.hydrateFromSessionMessages(session.messages)
+    chatStore.hydrateFromSessionMessages(session.messages, session.currentPlan)
     chatStore.setSession(session.id)
   } catch (err) {
     const isNotFound = err instanceof Error && err.message.includes('404')

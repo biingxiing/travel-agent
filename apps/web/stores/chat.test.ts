@@ -89,4 +89,37 @@ describe('chat store history hydration', () => {
     expect(sanitized.messages.map((message) => message.role)).not.toContain('system')
     expect(sanitized.errorMessage).toBe('')
   })
+
+  it('preserves restored final plan when starting a new planning turn', () => {
+    const store = useChatStore()
+    const plan: Plan = {
+      title: '已生成行程',
+      destinations: ['顺德'],
+      days: 3,
+      travelers: 2,
+      pace: 'balanced',
+      preferences: [],
+      dailyPlans: [{ day: 1, items: [] }, { day: 2, items: [] }, { day: 3, items: [] }],
+      tips: [],
+      disclaimer: 'x',
+    }
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: '帮我规划一下',
+        timestamp: 1,
+      },
+      {
+        role: 'assistant',
+        content: '✅ 行程已生成',
+        timestamp: 2,
+      },
+    ]
+
+    store.hydrateFromSessionMessages(messages, plan)
+    store.beginPlanning('继续优化')
+
+    expect(store.phase).toBe('planning')
+    expect(store.plan).toEqual(plan)
+  })
 })
