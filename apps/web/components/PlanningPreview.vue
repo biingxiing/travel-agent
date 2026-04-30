@@ -5,7 +5,6 @@ import {
   Calendar,
   DollarSign,
   Users,
-  Award,
   Bed,
   UtensilsCrossed,
   Mountain,
@@ -13,11 +12,9 @@ import {
   Compass,
   StickyNote,
 } from "lucide-vue-next"
-import type { Plan, PlanItem } from "@travel-agent/shared"
+import type { PlanItem } from "@travel-agent/shared"
 import { useChatStore } from "~/stores/chat"
 import { useWorkspaceStore } from "~/stores/workspace"
-import type { ItineraryScore, ItemScore } from "~/utils/scoring"
-import { scorePlan, buildItemScoreMap, gradeColor } from "~/utils/scoring"
 import { poiVisualForType } from "~/utils/poi-visual"
 
 const props = defineProps<{
@@ -29,7 +26,7 @@ const props = defineProps<{
 const chatStore = useChatStore()
 const workspaceStore = useWorkspaceStore()
 const { pendingSelections } = storeToRefs(chatStore)
-const { currentPlan, currentScore } = storeToRefs(workspaceStore)
+const { currentPlan } = storeToRefs(workspaceStore)
 
 const resultStatus = computed(() => {
   if (props.phase === "planning" || pendingSelections.value.length > 0) {
@@ -89,48 +86,10 @@ const activeAttractionItems = computed<PlanItem[]>(() => {
   return items
 })
 
-const itineraryScore = computed<ItineraryScore | null>(() =>
-  currentPlan.value ? scorePlan(currentPlan.value) : null,
-)
-
-// When the API evaluator has returned a score, override the overall value and
-// any per-category scores it provides. The API ItineraryScoreSummary contains
-// numeric values for transport, lodging, and attraction — merge those into the
-// richer client-side CategoryScore objects so the bars reflect the server's
-// blended (rule + LLM critic) scores, not just the client-side rule scores.
-const displayScore = computed<ItineraryScore | null>(() => {
-  if (!itineraryScore.value) return null
-  if (currentScore.value == null) return itineraryScore.value
-  const api = currentScore.value
-  // Start with client-side scores as the base structure, then selectively
-  // override with API values wherever the API returned a non-null number.
-  return {
-    ...itineraryScore.value,
-    overall: api.overall,
-    transport: api.transport != null
-      ? { ...itineraryScore.value.transport, score: api.transport, grade: itineraryScore.value.transport.grade }
-      : itineraryScore.value.transport,
-    lodging: api.lodging != null
-      ? { ...itineraryScore.value.lodging, score: api.lodging, grade: itineraryScore.value.lodging.grade }
-      : itineraryScore.value.lodging,
-    attraction: api.attraction != null
-      ? { ...itineraryScore.value.attraction, score: api.attraction, grade: itineraryScore.value.attraction.grade }
-      : itineraryScore.value.attraction,
-  }
-})
-
-const itemScoreMap = computed<Map<string, ItemScore>>(() => {
-  if (!currentPlan.value || !itineraryScore.value) return new Map()
-  return buildItemScoreMap(currentPlan.value, itineraryScore.value)
-})
-
 const statDays = computed(() => currentPlan.value?.days ?? 0)
 const statBudget = computed(() => currentPlan.value?.estimatedBudget?.amount ?? 0)
 const statCurrency = computed(() => currentPlan.value?.estimatedBudget?.currency ?? "CNY")
 const statTravelers = computed(() => currentPlan.value?.travelers ?? 1)
-const statScore = computed(
-  () => displayScore.value?.overall ?? null,
-)
 
 const POI_ICON_COMPONENTS: Record<string, unknown> = {
   bed: Bed,
@@ -146,20 +105,6 @@ function poiIconComponent(type: string | undefined) {
 }
 function poiGradient(type: string | undefined) {
   return poiVisualForType(type).gradient
-}
-
-function itemBadgeColor(dayNum: number, idx: number): string | null {
-  const scored = itemScoreMap.value.get(`${dayNum}-${idx}`)
-  if (!scored) return null
-  return gradeColor(scored.grade)
-}
-
-function itemBadgeTitle(dayNum: number, idx: number): string {
-  const scored = itemScoreMap.value.get(`${dayNum}-${idx}`)
-  if (!scored) return ""
-  const missing = scored.checks.filter((c) => !c.found).map((c) => c.label)
-  if (missing.length === 0) return `${scored.score}/100`
-  return `${scored.score}/100 · 缺少: ${missing.join("、")}`
 }
 
 function itemTypeLabel(type: string) {
@@ -190,8 +135,6 @@ function itemLocation(item: PlanItem): string {
   return item.location?.name || ""
 }
 
-void workspaceStore
-void currentScore
 </script>
 
 <template>
@@ -236,16 +179,8 @@ void currentScore
             <span class="plan-stat-label"><Users :size="12" :stroke-width="1.5" />PEOPLE</span>
             <span class="plan-stat-value tabular">{{ statTravelers }}</span>
           </div>
-          <div class="plan-stat">
-            <span class="plan-stat-label"><Award :size="12" :stroke-width="1.5" />SCORE</span>
-            <span class="plan-stat-value tabular">
-              {{ statScore ?? '—' }}<span class="currency-unit" style="margin-left: 3px;">/ 100</span>
-            </span>
-          </div>
         </div>
       </section>
-
-      <ItineraryScore v-if="displayScore" :score="displayScore" />
 
       <div class="workspace-grid">
         <section class="preview-card">

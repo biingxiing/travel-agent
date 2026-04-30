@@ -10,10 +10,7 @@ describe('entryFromSession', () => {
     brief: null,
     messages: [],
     currentPlan: null,
-    currentScore: null,
-    currentEvaluation: null,
     status: 'draft',
-    iterationCount: 0,
     lastRunId: null,
     pendingClarification: null,
     prefetchContext: [],
@@ -59,7 +56,7 @@ describe('entryFromSession', () => {
   it('derives title from first user message for in-progress sessions', () => {
     const entry = entryFromSession({
       ...baseSession,
-      status: 'refining',
+      status: 'planning',
       messages: [{ role: 'user', content: '我想去成都吃火锅，四天三夜', timestamp: 1 }],
     })
     expect(entry?.title).toBe('我想去成都吃火锅，四天三夜')

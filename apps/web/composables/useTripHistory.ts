@@ -52,7 +52,7 @@ function writeIndex(entries: TripHistoryEntry[]): void {
 
 export const coverForDestination = destinationColor
 
-const IN_PROGRESS_STATUSES = new Set(['planning', 'refining', 'awaiting_user'])
+const IN_PROGRESS_STATUSES = new Set(['planning', 'awaiting_user'])
 
 export function entryFromSession(session: SessionState): TripHistoryEntry | null {
   if (!session?.id) return null

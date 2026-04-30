@@ -3,18 +3,12 @@ import { Motion } from 'motion-v'
 import type { ChatMessage } from "~/types/itinerary"
 import ScrollArea from '~/components/ui/ScrollArea.vue'
 import StreamingBubble from '~/components/states/StreamingBubble.vue'
-import { useChatStore } from '~/stores/chat'
-import { storeToRefs } from 'pinia'
-
 defineProps<{
   messages: ChatMessage[]
   phase: "idle" | "planning" | "result" | "error"
   agentStatus: string
   streamSteps: string[]
 }>()
-
-const chatStore = useChatStore()
-const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
 </script>
 
 <template>
@@ -48,9 +42,6 @@ const { loopStatus, iteration, maxIterations } = storeToRefs(chatStore)
         v-if="phase === 'planning'"
         :status="agentStatus"
         :steps="streamSteps"
-        :loop-status="loopStatus"
-        :iteration="iteration"
-        :max-iterations="maxIterations"
       />
     </ScrollArea>
 

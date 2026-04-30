@@ -1,28 +1,17 @@
 <script setup lang="ts">
 import { Sparkles } from 'lucide-vue-next'
 
-const props = defineProps<{
+defineProps<{
   status: string
   steps?: string[]
-  loopStatus?: 'evaluating' | 'refining' | null
-  iteration?: number
-  maxIterations?: number
 }>()
-
-const effectiveStatus = computed(() => {
-  if (props.loopStatus === 'evaluating') return 'AI 正在评估当前方案…'
-  if (props.loopStatus === 'refining' && props.iteration && props.maxIterations) {
-    return `第 ${props.iteration} / ${props.maxIterations} 轮优化中…`
-  }
-  return props.status
-})
 </script>
 
 <template>
   <article class="streaming-bubble">
     <div class="streaming-row">
       <Sparkles :size="16" :stroke-width="1.75" class="streaming-icon" />
-      <span class="streaming-status">{{ effectiveStatus }}</span>
+      <span class="streaming-status">{{ status }}</span>
     </div>
     <ul v-if="steps?.length" class="streaming-steps">
       <li v-for="step in steps" :key="step">{{ step }}</li>

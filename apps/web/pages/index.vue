@@ -7,8 +7,6 @@ import PlanningPreview from "~/components/PlanningPreview.vue"
 import PromptComposer from "~/components/PromptComposer.vue"
 import TripHistoryGrid from "~/components/TripHistoryGrid.vue"
 import ClarifyCard from "~/components/react/ClarifyCard.vue"
-import MaxIterCard from "~/components/react/MaxIterCard.vue"
-import ReactProgressBar from "~/components/react/ReactProgressBar.vue"
 import DropdownMenu, { DropdownMenuItem, DropdownMenuSeparator } from "~/components/ui/DropdownMenu.vue"
 import { useAuthApi } from "~/composables/useAuthApi"
 import { useChatStream } from "~/composables/useChatStream"
@@ -40,13 +38,7 @@ const {
   messages,
   phase,
   streamSteps,
-  iteration,
-  maxIterations,
-  displayScore,
-  targetScore,
-  loopStatus,
   awaitingClarify,
-  maxIterReached,
   canContinue,
 } = storeToRefs(chatStore)
 const { errorMessage: authErrorMessage, status: authStatus, username } = storeToRefs(authStore)
@@ -577,27 +569,12 @@ onBeforeUnmount(() => {
 
         <template v-else>
           <!-- ReAct loop UI (mutually exclusive) -->
-          <ReactProgressBar
-            v-if="loopStatus"
-            :loop-status="loopStatus"
-            :iteration="iteration"
-            :max-iterations="maxIterations"
-            :display-score="displayScore"
-            :target-score="targetScore"
-          />
           <ClarifyCard
-            v-else-if="awaitingClarify"
+            v-if="awaitingClarify"
             :question="awaitingClarify.question"
             :reason="awaitingClarify.reason"
             :default-suggestion="awaitingClarify.defaultSuggestion"
             @use-default="onUseDefault"
-          />
-          <MaxIterCard
-            v-else-if="canContinue && maxIterReached"
-            :max-iterations="maxIterations"
-            :current-score="maxIterReached.currentScore"
-            :target-score="targetScore"
-            @continue="onContinue"
           />
 
           <section class="main-section">
