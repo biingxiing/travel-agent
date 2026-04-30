@@ -5,6 +5,7 @@ import type {
 
 const SESSION_STORAGE_KEY = 'ta_sessionId'
 const PLAN_STORAGE_KEY = 'ta_currentPlan'
+const LOCAL_ACTIVE_SESSION_KEY = 'ta_active_session_id'
 
 export const useWorkspaceStore = defineStore('workspace', {
   state: () => ({
@@ -36,8 +37,10 @@ export const useWorkspaceStore = defineStore('workspace', {
       if (typeof window === 'undefined') return
       if (this.sessionId) {
         sessionStorage.setItem(SESSION_STORAGE_KEY, this.sessionId)
+        localStorage.setItem(LOCAL_ACTIVE_SESSION_KEY, this.sessionId)
       } else {
         sessionStorage.removeItem(SESSION_STORAGE_KEY)
+        localStorage.removeItem(LOCAL_ACTIVE_SESSION_KEY)
       }
       if (this.currentPlan) {
         sessionStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(this.currentPlan))
@@ -57,6 +60,11 @@ export const useWorkspaceStore = defineStore('workspace', {
           sessionStorage.removeItem(PLAN_STORAGE_KEY)
         }
       }
+    },
+
+    getActiveSessionId(): string | null {
+      if (typeof window === 'undefined') return null
+      return localStorage.getItem(LOCAL_ACTIVE_SESSION_KEY)
     },
   },
 })
