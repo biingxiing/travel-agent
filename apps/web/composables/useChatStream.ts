@@ -8,6 +8,7 @@ export interface ChatStreamHandlers {
 }
 
 export interface ChatStreamSession {
+  createSession: () => Promise<string>
   ensureSessionId: () => Promise<string>
   sendMessage: (content: string, handlers: ChatStreamHandlers, language?: string) => Promise<void>
   continueOptimization: (handlers: ChatStreamHandlers) => Promise<void>
@@ -143,7 +144,7 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
   }
 
   return {
-    ensureSessionId, sendMessage, continueOptimization, loadSession,
+    createSession, ensureSessionId, sendMessage, continueOptimization, loadSession,
     setSessionId: (id) => { sessionId = id },
     getSessionId: () => sessionId,
   }

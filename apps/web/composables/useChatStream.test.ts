@@ -46,4 +46,18 @@ describe('useChatStream', () => {
     expect(onError.mock.calls[0]?.[0]).toBeInstanceOf(Error)
     expect((onError.mock.calls[0]?.[0] as Error).message).toBe('规划生成超时，请重试。')
   })
+
+  it('exposes createSession as a public method that sets the internal sessionId', async () => {
+    global.fetch = vi.fn(async () => ({
+      ok: true,
+      json: async () => ({ session: { id: 'new-uuid-123' } }),
+      body: null,
+    })) as typeof fetch
+
+    const stream = useChatStream(null)
+    const id = await stream.createSession()
+
+    expect(id).toBe('new-uuid-123')
+    expect(stream.getSessionId()).toBe('new-uuid-123')
+  })
 })
