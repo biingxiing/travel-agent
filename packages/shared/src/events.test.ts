@@ -87,39 +87,6 @@ describe('ChatStreamEventSchema · variant coverage', () => {
     })).toThrow()
   })
 
-  it('parses iteration_progress', () => {
-    const e = ChatStreamEventSchema.parse({
-      type: 'iteration_progress',
-      iteration: 3, maxIterations: 10,
-      currentScore: 78, targetScore: 90,
-      status: 'refining',
-    })
-    expect(e.type).toBe('iteration_progress')
-  })
-
-  it('rejects iteration_progress with iteration <= 0', () => {
-    expect(() => ChatStreamEventSchema.parse({
-      type: 'iteration_progress', iteration: 0, maxIterations: 10,
-      currentScore: 0, targetScore: 90, status: 'evaluating',
-    })).toThrow()
-  })
-
-  it('parses score with all category scores', () => {
-    const e = ChatStreamEventSchema.parse({
-      type: 'score', overall: 88, transport: 90, lodging: 85, attraction: 92,
-      iteration: 4, converged: false,
-    })
-    expect(e.type).toBe('score')
-  })
-
-  it('parses score with null category scores', () => {
-    const e = ChatStreamEventSchema.parse({
-      type: 'score', overall: 50, transport: null, lodging: null, attraction: null,
-      iteration: 0, converged: false,
-    })
-    expect(e.type).toBe('score')
-  })
-
   it('parses clarify_needed', () => {
     const e = ChatStreamEventSchema.parse({
       type: 'clarify_needed', question: '从哪出发？', reason: 'missing_origin',
@@ -144,13 +111,6 @@ describe('ChatStreamEventSchema · variant coverage', () => {
     expect(() => ChatStreamEventSchema.parse({
       type: 'assistant_say', content: '',
     })).toThrow()
-  })
-
-  it('parses max_iter_reached with full plan payload', () => {
-    const e = ChatStreamEventSchema.parse({
-      type: 'max_iter_reached', currentScore: 87, plan: minimalPlan,
-    })
-    expect(e.type).toBe('max_iter_reached')
   })
 
   it('parses done with optional usage', () => {
@@ -193,16 +153,7 @@ describe('ChatStreamEventSchema · round-trip JSON safety', () => {
           question: 'q', options: [{ id: 'a', label: 'A', description: 'd', patch: {} }],
         }],
       },
-      {
-        type: 'iteration_progress', iteration: 1, maxIterations: 10,
-        currentScore: 50, targetScore: 90, status: 'evaluating',
-      },
-      {
-        type: 'score', overall: 80, transport: 80, lodging: 80, attraction: 80,
-        iteration: 1, converged: false,
-      },
       { type: 'clarify_needed', question: 'q', reason: 'other' },
-      { type: 'max_iter_reached', currentScore: 75, plan: minimalPlan },
       { type: 'done', messageId: 'm' },
       { type: 'error', code: 'X', message: 'm' },
       { type: 'assistant_say', content: '思考一下…' },

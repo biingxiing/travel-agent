@@ -1,6 +1,11 @@
 import { z } from 'zod'
 import { PlanSchema, rawPlanShape } from './plan.js'
-import { BlockerTypeEnum } from './evaluation.js'
+
+export const BlockerTypeEnum = z.enum([
+  'missing_origin', 'missing_destination', 'missing_days',
+  'missing_dates', 'missing_budget', 'unclear_preference', 'other',
+])
+export type BlockerType = z.infer<typeof BlockerTypeEnum>
 
 export const FollowupFieldEnum = z.enum([
   'destination', 'days', 'travelers', 'budget', 'preferences', 'pace',
@@ -65,32 +70,10 @@ export const ChatStreamEventSchema = z.discriminatedUnion('type', [
   FollowupEventSchema,
   ItemOptionsEventSchema,
   z.object({
-    type: z.literal('iteration_progress'),
-    iteration: z.number().int().positive(),
-    maxIterations: z.number().int().positive(),
-    currentScore: z.number(),
-    targetScore: z.number(),
-    status: z.enum(['evaluating', 'refining']),
-  }),
-  z.object({
-    type: z.literal('score'),
-    overall: z.number(),
-    transport: z.number().nullable(),
-    lodging: z.number().nullable(),
-    attraction: z.number().nullable(),
-    iteration: z.number().int().nonnegative(),
-    converged: z.boolean(),
-  }),
-  z.object({
     type: z.literal('clarify_needed'),
     question: z.string(),
     reason: BlockerTypeEnum,
     defaultSuggestion: z.string().optional(),
-  }),
-  z.object({
-    type: z.literal('max_iter_reached'),
-    currentScore: z.number(),
-    plan: PlanSchema,
   }),
   z.object({
     type: z.literal('done'),
