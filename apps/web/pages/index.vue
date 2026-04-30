@@ -269,11 +269,24 @@ function onUseDefault(suggestion: string) {
 
 async function submitPrompt(value: string) {
   const content = value.trim()
-
   if (!content) {
     chatStore.setInputError()
     return
   }
+
+  // Create session before beginPlanning so the ID is written to localStorage
+  // immediately — surviving page refresh, new tab, browser restart.
+  let sessionId: string
+  try {
+    sessionId = await stream.createSession()
+  } catch (err) {
+    const raw = err instanceof Error ? err.message : ''
+    chatStore.setRequestError(raw || '无法创建会话，请检查网络后重试。')
+    return
+  }
+  chatStore.setSession(sessionId)
+  workspaceStore.sessionId = sessionId
+  workspaceStore.persistState()
 
   chatStore.beginPlanning(content)
 
@@ -281,30 +294,16 @@ async function submitPrompt(value: string) {
     await stream.sendMessage(content, {
       onEvent: (event) => {
         chatStore.handleStreamEvent(event)
-        // Sync sessionId from stream into stores after first event
-        const id = stream.getSessionId()
-        if (id) {
-          if (!chatStore.sessionId) chatStore.setSession(id)
-          if (workspaceStore.sessionId !== id) {
-            workspaceStore.sessionId = id
-            workspaceStore.persistState()
-          }
-        }
       },
       onClose: () => {
-        // Priority: explicit clarification request > plan success > preserve whatever text arrived
         const message = chatStore.awaitingClarify?.question
-          ?? (currentPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
+          ?? (currentPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')
         chatStore.completePlannerResponse(message)
       },
       onError: (err) => {
         const raw = err instanceof Error ? err.message : ''
         const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
-        const message = isNetworkError
-          ? '连接中断，请重试'
-          : (raw || '请求出错，请重试')
-        // If a plan is already rendered, preserve it — only show the error in
-        // the chat bubble, do NOT switch to the error phase (which clears the plan).
+        const message = isNetworkError ? '连接中断，请重试' : (raw || '请求出错，请重试')
         if (currentPlan.value) {
           chatStore.completePlannerResponse(message)
         } else {
@@ -315,9 +314,7 @@ async function submitPrompt(value: string) {
   } catch (error) {
     const raw = error instanceof Error ? error.message : ''
     const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
-    const message = isNetworkError
-      ? '连接中断，请重试'
-      : (raw || '请求出错，请重试')
+    const message = isNetworkError ? '连接中断，请重试' : (raw || '请求出错，请重试')
     if (currentPlan.value) {
       chatStore.completePlannerResponse(message)
     } else {
@@ -408,8 +405,35 @@ async function submitLogout() {
   }
 }
 
+async function restoreActiveSession() {
+  if (!isAuthenticated.value) return
+  if (chatStore.sessionId) return   // sessionStorage already has a session (same-tab refresh)
+
+  const savedId = workspaceStore.getActiveSessionId()
+  if (!savedId) return
+
+  try {
+    const { session } = await stream.loadSession(savedId)
+    stream.setSessionId(session.id)
+    workspaceStore.hydrateFromSession(session)
+    workspaceStore.persistState()
+    chatStore.hydrateFromSessionMessages(session.messages)
+    chatStore.setSession(session.id)
+  } catch (err) {
+    const isNotFound = err instanceof Error && err.message.includes('404')
+    if (isNotFound) {
+      // Server restarted (in-memory sessions lost). Clear the stale pointer.
+      workspaceStore.sessionId = null
+      workspaceStore.persistState()
+    } else {
+      console.warn('[restoreActiveSession] failed', err)
+    }
+  }
+}
+
 onMounted(async () => {
   await refreshAuthState()
+  await restoreActiveSession()
   await nextTick()
   readStoredPanelLayout()
   syncPanelLayoutBounds()
