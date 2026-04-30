@@ -45,4 +45,43 @@ describe('entryFromSession', () => {
 
     expect(entry?.destination).toBe('顺德 / 珠海')
   })
+
+  it('keeps sessions with status planning even when they have no brief or plan', () => {
+    const entry = entryFromSession({
+      ...baseSession,
+      status: 'planning',
+      messages: [{ role: 'user', content: '帮我规划三亚五天', timestamp: 1 }],
+    })
+    expect(entry).not.toBeNull()
+    expect(entry?.status).toBe('planning')
+  })
+
+  it('derives title from first user message for in-progress sessions', () => {
+    const entry = entryFromSession({
+      ...baseSession,
+      status: 'refining',
+      messages: [{ role: 'user', content: '我想去成都吃火锅，四天三夜', timestamp: 1 }],
+    })
+    expect(entry?.title).toBe('我想去成都吃火锅，四天三夜')
+  })
+
+  it('truncates long user messages to 40 chars with ellipsis', () => {
+    const longMessage = '我想去一个非常非常非常遥远的地方旅行，具体来说是想去新疆看看大漠孤烟'
+    const entry = entryFromSession({
+      ...baseSession,
+      status: 'awaiting_user',
+      messages: [{ role: 'user', content: longMessage, timestamp: 1 }],
+    })
+    expect(entry?.title).toBe(longMessage.slice(0, 40) + '…')
+  })
+
+  it('falls back to 规划中… when in-progress session has no user message', () => {
+    const entry = entryFromSession({
+      ...baseSession,
+      status: 'planning',
+      messages: [],
+    })
+    expect(entry).not.toBeNull()
+    expect(entry?.title).toBe('规划中…')
+  })
 })

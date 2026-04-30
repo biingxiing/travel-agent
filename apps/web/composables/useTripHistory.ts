@@ -10,6 +10,7 @@ export interface TripHistoryEntry {
   poiCount: number
   cityCount: number
   updatedAt: string
+  status?: 'planning' | 'completed'
 }
 
 const STORAGE_KEY = "travel-agent.trips.index"
@@ -51,32 +52,41 @@ function writeIndex(entries: TripHistoryEntry[]): void {
 
 export const coverForDestination = destinationColor
 
+const IN_PROGRESS_STATUSES = new Set(['planning', 'refining', 'awaiting_user'])
+
 export function entryFromSession(session: SessionState): TripHistoryEntry | null {
   if (!session?.id) return null
   const plan: Plan | null = session.currentPlan ?? null
   const brief = session.brief
   const hasRecoverableBrief = Array.isArray(brief?.destinations) && brief.destinations.length > 0
-  const hasNamedTitle = typeof session.title === "string" && session.title.trim().length > 0
+  const hasNamedTitle = typeof session.title === 'string' && session.title.trim().length > 0
+  const isInProgress = IN_PROGRESS_STATUSES.has(session.status)
 
-  // Drop unrecoverable draft shells from the visible history. These are usually
-  // aborted/failed sessions with only a raw user message and no parsed brief or plan.
-  if (!plan && !hasRecoverableBrief && !hasNamedTitle) {
+  if (!isInProgress && !plan && !hasRecoverableBrief && !hasNamedTitle) {
     return null
   }
 
   const dests: string[] = brief?.destinations ?? plan?.destinations ?? []
   const destination = dests.length > 1 ? dests.join(' / ') : (dests[0] ?? '')
-  const title =
-    session.title ||
-    plan?.title ||
-    (destination ? `${destination} 旅行方案` : "未命名行程")
+
+  let title: string
+  if (hasNamedTitle) {
+    title = session.title!
+  } else if (plan?.title) {
+    title = plan.title
+  } else if (destination) {
+    title = `${destination} 旅行方案`
+  } else if (isInProgress) {
+    const firstUserMsg = session.messages?.find((m) => m.role === 'user')?.content ?? ''
+    title = firstUserMsg.length > 30 ? firstUserMsg.slice(0, 40) + '…' : (firstUserMsg || '规划中…')
+  } else {
+    title = '未命名行程'
+  }
 
   const dailyPlans = plan?.dailyPlans
   const days = dailyPlans?.length ?? plan?.days ?? brief?.days ?? 0
   const cities = new Set<string>()
-  dailyPlans?.forEach((day) => {
-    if (day.city) cities.add(day.city)
-  })
+  dailyPlans?.forEach((day) => { if (day.city) cities.add(day.city) })
   ;(brief?.destinations ?? plan?.destinations ?? []).forEach((d) => { if (d) cities.add(d) })
 
   let poiCount = 0
@@ -94,6 +104,7 @@ export function entryFromSession(session: SessionState): TripHistoryEntry | null
     poiCount,
     cityCount: Math.max(cities.size, destination ? 1 : 0),
     updatedAt: new Date(session.updatedAt ?? Date.now()).toISOString(),
+    status: isInProgress ? 'planning' : 'completed',
   }
 }
 
