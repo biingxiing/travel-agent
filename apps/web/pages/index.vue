@@ -38,6 +38,7 @@ const {
   draft,
   errorMessage,
   messages,
+  plan: chatPlan,
   phase,
   streamSteps,
   iteration,
@@ -58,8 +59,10 @@ const leftPanelWidth = ref(42)
 const isResizingSplit = ref(false)
 let stopActiveResize: (() => void) | null = null
 const hasConversation = computed(() => messages.value.length > 1)
+const hasPlanArtifact = computed(() => Boolean(
+  chatPlan.value || (phase.value === "result" && currentPlan.value)
+))
 const hasWorkspaceState = computed(() => Boolean(currentPlan.value || workspaceSessionId.value))
-const hasPlanArtifact = computed(() => Boolean(currentPlan.value))
 const isAuthenticated = computed(() => authStatus.value === "authenticated")
 const isLanding = computed(() => !hasConversation.value && !hasWorkspaceState.value)
 const pageNotice = computed(() => {
@@ -604,7 +607,7 @@ onBeforeUnmount(() => {
             <section
               ref="mainSplitRef"
               class="main-grid"
-              :class="{ 'is-single-panel': !hasPlanArtifact && phase !== 'planning' }"
+              :class="{ 'is-single-panel': !hasPlanArtifact }"
               :style="mainGridStyle"
             >
               <div class="main-grid-panel main-grid-panel-primary">
@@ -627,7 +630,7 @@ onBeforeUnmount(() => {
                 </ChatPanel>
               </div>
 
-              <template v-if="hasPlanArtifact || phase === 'planning'">
+              <template v-if="hasPlanArtifact">
                 <button
                   type="button"
                   class="main-grid-divider"
@@ -643,7 +646,7 @@ onBeforeUnmount(() => {
                   </span>
                 </button>
 
-                <div class="main-grid-panel">
+                <div class="main-grid-panel main-grid-panel-secondary">
                   <PlanningPreview
                     :agent-status="agentStatus"
                     :error-message="errorMessage"
