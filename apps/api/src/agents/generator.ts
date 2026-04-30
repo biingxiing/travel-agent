@@ -3,7 +3,7 @@ import { PLANNER_MODEL } from '../llm/client.js'
 import { loggedCompletion, loggedStream } from '../llm/logger.js'
 import { skillRegistry } from '../registry/skill-registry.js'
 import {
-  PlanSchema, type Plan, type ChatStreamEvent, type EvaluationReport, type TripBrief,
+  PlanSchema, type Plan, type ChatStreamEvent, type TripBrief,
 } from '@travel-agent/shared'
 import type OpenAI from 'openai'
 import type { SkillManifest } from '../registry/types.js'
@@ -74,34 +74,6 @@ PlanItem fields:
 - Transport must connect the correct city pairs with realistic schedules.
 - All prices should be reasonable for the destination and traveler count.
 - Output all user-facing text (titles, descriptions, tips, disclaimer) in OUTPUT_LANGUAGE.`
-
-const SYSTEM_PROMPT_REFINE = `You are a travel itinerary repair specialist. Fix ONLY the issues identified in the critic's EvaluationReport — do NOT rewrite the entire itinerary.
-
-## Repair Instructions
-
-For each itemIssue:
-- suggestedAction = call_flyai_flight: call flyai search-flight using hints, then rewrite the transport item description with real data (flight number, route, time, price).
-- suggestedAction = call_flyai_train: call flyai search-train using hints, then rewrite the transport item with real train data.
-- suggestedAction = call_flyai_hotel: call flyai search-hotel using hints, then rewrite the lodging item with real hotel name and price.
-- suggestedAction = call_flyai_poi: call flyai search-poi using hints, then enrich the attraction description.
-- suggestedAction = rewrite_description: rewrite only the description field, adding the missing details (opening hours, admission, duration, hotel name, price per night).
-- suggestedAction = replace_item: replace with a more appropriate item at the same position.
-- suggestedAction = reorder: adjust item order within the day for logical flow.
-
-For globalIssues: make targeted adjustments (e.g., swap a duplicate attraction, rebalance a packed day).
-
-Preserve every item NOT mentioned in the report exactly as-is.
-
-## Output
-Output the COMPLETE repaired plan JSON (all days, all items including unchanged ones) — exactly ONE \`\`\`json code block. No prose before or after.
-
-## Input You Will Receive
-1. TripBrief — structured trip requirements
-2. PrefetchContext — real-world data already retrieved for this session (for reference)
-3. CurrentPlan — the plan to repair
-4. EvaluationReport — itemIssues and globalIssues to address
-
-Output all user-facing text in OUTPUT_LANGUAGE.`
 
 // Build tool list once per process start — skill registry is static after bootstrap.
 let _cachedTools: OpenAI.Chat.ChatCompletionTool[] | null = null
@@ -360,62 +332,3 @@ export async function* runInitial(
   }
 }
 
-// runRefine: receives structured data only — no raw chat history.
-// Reuses prefetchContext from the session to avoid redundant flyai calls.
-export async function runRefine(
-  current: Plan,
-  report: EvaluationReport,
-  brief: TripBrief,
-  prefetchContext: string[] = [],
-  language = 'zh',
-): Promise<Plan> {
-  const systemPrompt = SYSTEM_PROMPT_REFINE.replace('OUTPUT_LANGUAGE', resolveLanguageLabel(language))
-
-  // Static prefix first (cacheable), then current task instruction last.
-  const prefetchMessages: OpenAI.Chat.ChatCompletionMessageParam[] = prefetchContext.map(
-    (content) => ({ role: 'user' as const, content: `[Prefetch data for reference]\n${content}` }),
-  )
-  const llmMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
-    { role: 'system', content: systemPrompt },
-    ...prefetchMessages,
-    {
-      role: 'user',
-      content: [
-        `TripBrief:\n${JSON.stringify(brief)}`,
-        `\nCurrentPlan:\n${JSON.stringify(current)}`,
-        `\nEvaluationReport:\n${JSON.stringify({
-          combined: report.combined,
-          itemIssues: report.itemIssues,
-          globalIssues: report.globalIssues,
-        })}`,
-      ].join('\n'),
-    },
-  ]
-
-  const tools = buildSkillTools()
-  const prepared = await runWithToolLoop(llmMessages, tools)
-  let parsed = tryParsePlan(prepared.content)
-  if (!parsed) {
-    try {
-      const resp = await loggedCompletion('generator', {
-        model: PLANNER_MODEL,
-        messages: [
-          ...prepared.messages,
-          { role: 'assistant', content: prepared.content },
-          { role: 'user', content: 'Your last reply did not contain a valid JSON plan. Output ONLY one ```json``` code block with the complete repaired plan, no prose before or after.' },
-        ],
-        tools, tool_choice: 'none',
-        temperature: 0.3,
-        reasoning_effort: GENERATOR_REASONING_EFFORT,
-      })
-      const retryContent = resp.choices[0]?.message?.content ?? ''
-      parsed = tryParsePlan(retryContent)
-    } catch (err) {
-      console.warn('[Generator.refine] Retry call failed:', err instanceof Error ? err.message : err)
-    }
-  }
-  if (parsed) return parsed
-  const rawLen = prepared.content?.length ?? 0
-  console.warn('[Generator.refine] Parse failed after retry (raw len=' + rawLen + '), throwing RefineFailedError')
-  throw new Error('RefineFailedError: Both streaming attempts produced unparseable/truncated JSON (raw len=' + rawLen + '). The plan was NOT updated.')
-}
