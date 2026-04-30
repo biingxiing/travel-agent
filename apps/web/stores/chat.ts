@@ -1,5 +1,5 @@
 import { defineStore } from "pinia"
-import type { ChatStreamEvent, ItineraryScoreSummary, Message, Plan, ItemOption, ItemSelection } from "@travel-agent/shared"
+import type { ChatStreamEvent, Message, Plan, ItemOption, ItemSelection } from "@travel-agent/shared"
 import type { ChatMessage, Role } from "~/types/itinerary"
 import { useWorkspaceStore } from "./workspace"
 
@@ -155,21 +155,14 @@ export const useChatStore = defineStore("chat", {
     pendingSelections: [] as ItemSelection[],
     iteration: 0,
     maxIterations: 10,
-    displayScore: null as number | null,
-    targetScore: 90,
-    loopStatus: null as 'evaluating' | 'refining' | null,
     awaitingClarify: null as { question: string; reason: string; defaultSuggestion?: string } | null,
-    maxIterReached: null as { currentScore: number } | null,
     canContinue: false
   }),
   actions: {
     resetTransientState() {
       this.iteration = 0
       this.maxIterations = 10
-      this.displayScore = null
-      this.loopStatus = null
       this.awaitingClarify = null
-      this.maxIterReached = null
       this.canContinue = false
       this.streamSteps = []
       this.errorMessage = ''
@@ -314,32 +307,11 @@ export const useChatStore = defineStore("chat", {
         case 'followup':
           this.agentStatus = event.question
           break
-        case 'iteration_progress':
-          this.iteration = event.iteration
-          this.maxIterations = event.maxIterations
-          this.displayScore = event.currentScore
-          this.targetScore = event.targetScore
-          this.loopStatus = event.status
-          break
-        case 'score': {
-          const summary: ItineraryScoreSummary = {
-            overall: event.overall,
-            transport: event.transport,
-            lodging: event.lodging,
-            attraction: event.attraction,
-            iteration: event.iteration
-          }
-          ws.currentScore = summary
-          this.displayScore = event.overall
-          break
-        }
         case 'plan':
           ws.currentPlan = event.plan
           ws.persistState()
           this.plan = event.plan
-          this.agentStatus = '正在评估行程…'
           this.awaitingClarify = null
-          this.maxIterReached = null
           this.persistState()
           break
         case 'item_options':
@@ -355,13 +327,7 @@ export const useChatStore = defineStore("chat", {
           this.canContinue = false
           ws.status = 'awaiting_user'
           break
-        case 'max_iter_reached':
-          this.maxIterReached = { currentScore: event.currentScore }
-          this.canContinue = true
-          ws.status = 'awaiting_user'
-          break
         case 'done':
-          this.loopStatus = null
           if (event.converged) {
             this.canContinue = false
             ws.status = 'converged'
@@ -372,7 +338,6 @@ export const useChatStore = defineStore("chat", {
           this.phase = 'error'
           this.errorMessage = event.message
           this.agentStatus = '生成失败'
-          this.loopStatus = null
           // Remove the blank in-progress assistant bubble and replace it
           // with an error-styled system bubble so the user sees red error
           // styling rather than a plain assistant message.
