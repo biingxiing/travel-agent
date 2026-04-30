@@ -1,4 +1,5 @@
-import { REQUIRED_CATEGORIES, DEFAULT_THRESHOLD } from '@travel-agent/shared'
+const DEFAULT_THRESHOLD = 90
+const REQUIRED_CATEGORIES: ReadonlyArray<'transport' | 'lodging' | 'attraction'> = ['transport', 'lodging', 'attraction']
 
 export interface EvalConfig {
   // Weight assigned to deterministic rule-based scoring. Always clamped to [0, 1].

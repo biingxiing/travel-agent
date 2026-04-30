@@ -45,9 +45,7 @@ interface SessionRow {
   brief: unknown
   messages: unknown
   current_plan: unknown
-  current_score: unknown
   status: string
-  iteration_count: number
   last_run_id: string | null
   pending_clarification: string | null
   created_at: Date
@@ -62,9 +60,7 @@ function rowToState(row: SessionRow): SessionState {
     brief: row.brief ?? null,
     messages: row.messages ?? [],
     currentPlan: row.current_plan ?? null,
-    currentScore: row.current_score ?? null,
     status: row.status,
-    iterationCount: row.iteration_count,
     lastRunId: row.last_run_id,
     pendingClarification: row.pending_clarification,
     createdAt: row.created_at.getTime(),
@@ -88,21 +84,19 @@ export async function listSessionsForUser(userId: string, limit = 50): Promise<S
 export async function upsertSession(state: SessionState): Promise<void> {
   await getPool().query(
     `INSERT INTO sessions (
-       id, user_id, title, brief, messages, current_plan, current_score,
-       status, iteration_count, last_run_id, pending_clarification,
+       id, user_id, title, brief, messages, current_plan,
+       status, last_run_id, pending_clarification,
        created_at, updated_at
      ) VALUES (
-       $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb, $7::jsonb,
-       $8, $9, $10, $11, to_timestamp($12/1000.0), to_timestamp($13/1000.0)
+       $1, $2, $3, $4::jsonb, $5::jsonb, $6::jsonb,
+       $7, $8, $9, to_timestamp($10/1000.0), to_timestamp($11/1000.0)
      )
      ON CONFLICT (id) DO UPDATE SET
        title = EXCLUDED.title,
        brief = EXCLUDED.brief,
        messages = EXCLUDED.messages,
        current_plan = EXCLUDED.current_plan,
-       current_score = EXCLUDED.current_score,
        status = EXCLUDED.status,
-       iteration_count = EXCLUDED.iteration_count,
        last_run_id = EXCLUDED.last_run_id,
        pending_clarification = EXCLUDED.pending_clarification,
        updated_at = EXCLUDED.updated_at`,
@@ -111,8 +105,7 @@ export async function upsertSession(state: SessionState): Promise<void> {
       state.brief === null ? null : JSON.stringify(state.brief),
       JSON.stringify(state.messages),
       state.currentPlan === null ? null : JSON.stringify(state.currentPlan),
-      state.currentScore === null ? null : JSON.stringify(state.currentScore),
-      state.status, state.iterationCount, state.lastRunId, state.pendingClarification,
+      state.status, state.lastRunId, state.pendingClarification,
       state.createdAt, state.updatedAt,
     ],
   )

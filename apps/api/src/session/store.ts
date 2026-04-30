@@ -34,7 +34,7 @@ export const sessionStore = {
   async create(userId: string): Promise<SessionState> {
     const state = SessionStateSchema.parse({
       id: randomUUID(), userId, status: 'draft',
-      iterationCount: 0, createdAt: nowMs(), updatedAt: nowMs(),
+      createdAt: nowMs(), updatedAt: nowMs(),
     })
     await persist(state)
     return state

@@ -47,7 +47,6 @@ export const generatePlanTool: SubagentTool = {
 
     if (!plan) return { type: 'ok', output: 'Generator produced no plan. Retry call_generator — do NOT call call_clarifier in response to this error.' }
     session.currentPlan = plan
-    session.iterationCount = (session.iterationCount ?? 0) + 1
     await emit({ type: 'agent_step', agent: 'generator', status: 'done' })
     return { type: 'ok', output: JSON.stringify(plan) }
   },

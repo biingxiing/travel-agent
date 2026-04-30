@@ -142,9 +142,7 @@ sessionsRouter.post('/:id/continue', async (c) => {
     return c.json({ error: 'Session not in awaiting_user state' }, 409)
   }
 
-  // Reset iteration counter to allow another batch of EVAL_MAX_ITER rounds
-  session.iterationCount = 0
-  session.status = 'refining'
+  session.status = 'planning'
   await sessionStore.save(session)
   const runId = await sessionStore.updateRunId(id)
   if (!runId) return c.json({ error: 'Session vanished' }, 500)
