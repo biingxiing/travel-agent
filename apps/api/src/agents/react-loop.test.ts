@@ -22,10 +22,8 @@ vi.mock('../llm/logger.js', () => ({
 
 // Mock all subagent tool implementations (not the tools themselves — just their underlying fns)
 vi.mock('./extractor.js', () => ({ extractBrief: vi.fn() }))
-vi.mock('./evaluator.js', () => ({ evaluate: vi.fn() }))
 vi.mock('./generator.js', () => ({
   runInitial: vi.fn(),
-  runRefine: vi.fn(),
 }))
 vi.mock('./prefetch.js', () => ({
   prefetchFlyaiContext: vi.fn(async () => []),
@@ -40,8 +38,7 @@ vi.mock('./clarifier.js', () => ({
 import { runReactLoop } from './react-loop.js'
 import { loggedStream } from '../llm/logger.js'
 import { extractBrief } from './extractor.js'
-import { evaluate } from './evaluator.js'
-import { runInitial, runRefine } from './generator.js'
+import { runInitial } from './generator.js'
 import type { SessionState, Plan } from '@travel-agent/shared'
 
 const samplePlan: Plan = {
@@ -53,24 +50,6 @@ function sampleBrief() {
   return {
     destinations: ['北京'], days: 3, travelers: 1, preferences: [],
     travelDates: { start: '2025-01-01', end: '2025-01-04' },
-  }
-}
-
-function emptyReport(converged = false, blockers: any[] = []) {
-  return {
-    ruleScore: {
-      overall: 80, grade: 'good',
-      transport: { score: 80, count: 1, items: [], grade: 'good' },
-      lodging: { score: 80, count: 1, items: [], grade: 'good' },
-      attraction: { score: 80, count: 2, items: [], grade: 'good' },
-      meal: { score: null, count: 0, items: [], grade: 'none' },
-      coverage: { score: 80, daysWithTransport: 1, daysWithLodging: 1, daysWithAttractions: 1, totalDays: 1 },
-      suggestions: [],
-    },
-    llmScore: 80,
-    combined: { overall: 80, transport: 80, lodging: 80, attraction: 80 },
-    blockers, itemIssues: [], globalIssues: [],
-    converged,
   }
 }
 
@@ -109,8 +88,8 @@ function baseSession(): SessionState {
   return {
     id: 's1', userId: 'u1', title: null, brief: null,
     messages: [{ role: 'user', content: '北京 3 天', timestamp: 1 }],
-    currentPlan: null, currentScore: null, currentEvaluation: null, status: 'draft',
-    iterationCount: 0, lastRunId: 'r1', pendingClarification: null,
+    currentPlan: null, status: 'draft',
+    lastRunId: 'r1', pendingClarification: null,
     prefetchContext: [], language: 'zh',
     createdAt: 1, updatedAt: 1,
   }
@@ -198,7 +177,7 @@ describe('runReactLoop (ReAct)', () => {
     expect(events.some(e => e.type === 'done')).toBe(true)
   })
 
-  it('emits max_iter_reached when MAX_TURNS exceeded', async () => {
+  it('emits done with converged=true when MAX_TURNS exceeded', async () => {
     // Always return the same tool call to exhaust MAX_TURNS
     ;(loggedStream as any).mockImplementation(() => makeChunks([{
       id: 'tc1', name: 'call_extractor', args: '{"messages":[]}',
@@ -209,15 +188,13 @@ describe('runReactLoop (ReAct)', () => {
 
     const session = baseSession()
     session.currentPlan = samplePlan
-    session.currentScore = { overall: 70, transport: 70, lodging: 70, attraction: 70, iteration: 1 }
 
     const events = await collect(runReactLoop(session, 'r1', noopEmit))
-    expect(events.some(e => e.type === 'max_iter_reached')).toBe(true)
     expect(events.some(e => e.type === 'done')).toBe(true)
-    expect(session.status).toBe('awaiting_user')
+    expect(session.status).toBe('converged')
   })
 
-  it('emits assistant_say when orchestrator narrates AND calls a tool', async () => {
+  it('does not emit assistant_say when orchestrator narrates alongside tool calls', async () => {
     ;(extractBrief as any).mockResolvedValue({
       brief: sampleBrief(), intent: 'new', changedFields: [],
     })
@@ -232,9 +209,9 @@ describe('runReactLoop (ReAct)', () => {
     const emitted: any[] = []
     await collect(runReactLoop(session, 'r1', async (e) => { emitted.push(e) }))
 
+    // When tool calls are present, narrative text is internal reasoning — do NOT surface it
     const sayEvents = emitted.filter(e => e.type === 'assistant_say')
-    expect(sayEvents).toHaveLength(1)
-    expect(sayEvents[0].content).toBe('让我先理解一下你的需求…')
+    expect(sayEvents).toHaveLength(0)
   })
 
   it('does not emit assistant_say when content is empty', async () => {

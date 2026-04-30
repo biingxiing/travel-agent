@@ -121,36 +121,7 @@ export async function* runReactLoop(
     const { assistantMessage, toolCalls, fullContent } = await streamOrchestrator(state, session, emit)
     const trimmed = fullContent.trim()
 
-    // No tool calls → orchestrator responded with plain text (no further tool
-    // calls). Treat as genuine convergence only when the session score actually
-    // meets the threshold — this guards against the LLM erroneously producing
-    // a narrative response instead of calling call_refiner when converged=false.
     if (toolCalls.length === 0) {
-      const score = session.currentScore
-      const evaluation = session.currentEvaluation
-      // If we have an evaluation that explicitly says not converged, the LLM
-      // has violated the post-evaluator rule by emitting prose instead of
-      // calling call_refiner. Treat this as a max-iter exit rather than
-      // convergence so the frontend shows "Continue Optimization" instead of
-      // locking the session.
-      const evaluationSaysNotConverged = evaluation != null && !evaluation.converged
-      if (evaluationSaysNotConverged) {
-        // Emit the text as a narrative bubble so the user can see it, but do
-        // not mark the session as converged.
-        if (trimmed) {
-          await emit({ type: 'assistant_say', content: fullContent })
-        }
-        session.status = 'awaiting_user'
-        if (session.currentPlan && score) {
-          yield {
-            type: 'max_iter_reached',
-            currentScore: score.overall,
-            plan: session.currentPlan,
-          }
-        }
-        yield { type: 'done', messageId: randomUUID() }
-        return
-      }
       if (trimmed) {
         await emit({ type: 'token', delta: fullContent })
       }
@@ -194,14 +165,7 @@ export async function* runReactLoop(
     }
   }
 
-  // Reached MAX_TURNS without convergence
-  session.status = 'awaiting_user'
-  if (session.currentPlan && session.currentScore) {
-    yield {
-      type: 'max_iter_reached',
-      currentScore: session.currentScore.overall,
-      plan: session.currentPlan,
-    }
-  }
-  yield { type: 'done', messageId: randomUUID() }
+  // Reached MAX_TURNS without explicit convergence
+  session.status = 'converged'
+  yield { type: 'done', messageId: randomUUID(), converged: true }
 }
