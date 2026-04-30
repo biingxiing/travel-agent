@@ -1063,7 +1063,7 @@ body.is-panel-resizing { user-select: none; }
 
 /* Main split grid (conversation view) */
 .main-grid {
-  --main-grid-left: 42%;
+  --main-grid-left: 46%;
   display: flex;
   flex: 1;
   gap: 0;
@@ -1078,9 +1078,29 @@ body.is-panel-resizing { user-select: none; }
   display: flex;
 }
 
-.main-grid-panel-primary { flex: 0 0 var(--main-grid-left); }
+.main-grid-panel-primary {
+  flex: 0 0 var(--main-grid-left);
+  transition: flex-basis 200ms var(--ease-out);
+}
+
 .main-grid-panel:not(.main-grid-panel-primary) { flex: 1 1 0; }
-.main-grid.is-single-panel .main-grid-panel-primary { flex: 1 1 100%; }
+.main-grid.is-single-panel .main-grid-panel-primary { flex-basis: 100%; }
+
+.main-grid-panel-secondary {
+  animation: plan-panel-reveal 200ms var(--ease-out) both;
+}
+
+@keyframes plan-panel-reveal {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
 
 .main-grid-panel > .conversation-shell,
 .main-grid-panel > .result-shell {
