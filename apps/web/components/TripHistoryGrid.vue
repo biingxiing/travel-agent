@@ -102,6 +102,7 @@ function onRemove(entry: TripHistoryEntry) {
               <Footprints :size="12" :stroke-width="1.5" />
               {{ entry.poiCount }} 个安排
             </span>
+            <span v-if="entry.status === 'planning'" class="history-meta-planning">规划中</span>
           </div>
         </div>
       </Motion>
@@ -218,6 +219,13 @@ function onRemove(entry: TripHistoryEntry) {
   display: inline-flex; align-items: center; gap: 4px;
 }
 .history-meta-item :deep(svg) { color: var(--text-subtle); }
+
+.history-meta-planning {
+  color: var(--color-brand, #6366f1);
+  font-size: var(--type-mono-xs-size, 10px);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
 
 @media (max-width: 640px) {
   .history-grid { grid-template-columns: 1fr; }
