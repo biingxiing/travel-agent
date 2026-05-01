@@ -2,6 +2,7 @@ import { z } from 'zod'
 import type OpenAI from 'openai'
 import { TripBriefSchema } from '@travel-agent/shared'
 import { ToolPool } from '../runtime/tool-pool.js'
+import { prefetchContextTool } from '../tools/researcher/prefetch-context.tool.js'
 
 export const SYSTEM_PROMPT = `You are a travel research subagent. Your sole job is to gather concrete real-world data needed to plan a trip.
 
@@ -40,5 +41,4 @@ export function buildMessages(input: Input): OpenAI.Chat.ChatCompletionMessagePa
   ]
 }
 
-// Populated in Task 11 once prefetch tool exists. Mutable on purpose.
-export const TOOLS = new ToolPool([])
+export const TOOLS = new ToolPool([prefetchContextTool])
