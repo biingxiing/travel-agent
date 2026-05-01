@@ -55,3 +55,6 @@ CREATE INDEX IF NOT EXISTS llm_calls_agent_idx   ON llm_calls (agent, created_at
 
 -- Add cached_tokens column to existing databases (idempotent)
 ALTER TABLE llm_calls ADD COLUMN IF NOT EXISTS cached_tokens INTEGER;
+
+-- Add compacted_history column for orchestrator context-window compaction (idempotent)
+ALTER TABLE sessions ADD COLUMN IF NOT EXISTS compacted_history TEXT;

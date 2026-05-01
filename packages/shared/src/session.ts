@@ -27,6 +27,8 @@ export const SessionStateSchema = z.object({
   lastRunId: z.string().nullable().default(null),
   // Clarification question currently waiting for a user answer.
   pendingClarification: z.string().nullable().default(null),
+  // Locked compact summary of earliest chat turns once history exceeds COMPACT_THRESHOLD.
+  compactedHistory: z.string().nullable().default(null),
   // Cached context snippets prefetched for the next planning run.
   prefetchContext: z.array(z.string()).default([]),
   // Preferred output language for replies and itinerary content.
