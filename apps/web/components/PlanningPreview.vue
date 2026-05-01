@@ -24,12 +24,14 @@ const props = defineProps<{
   phase: "idle" | "planning" | "result" | "error"
   agentStatus: string
   errorMessage: string
+  forcePlanningSkeleton?: boolean
 }>()
 
 const chatStore = useChatStore()
 const workspaceStore = useWorkspaceStore()
 const { pendingSelections } = storeToRefs(chatStore)
 const { currentPlan, currentScore } = storeToRefs(workspaceStore)
+const shouldShowPlanBody = computed(() => Boolean(currentPlan.value) && !props.forcePlanningSkeleton)
 
 const resultStatus = computed(() => {
   if (props.phase === "planning" || pendingSelections.value.length > 0) {
@@ -214,7 +216,7 @@ void currentScore
       <p class="postcard-copy">{{ errorMessage || "生成出了点问题，稍等一下再发一次吧。" }}</p>
     </div>
 
-    <div v-else-if="currentPlan" class="itinerary-body">
+    <div v-else-if="shouldShowPlanBody" class="itinerary-body">
       <section v-if="currentPlan" class="plan-hero-slab">
         <h2 class="plan-hero-title">{{ displayTitle }}</h2>
         <p v-if="displaySubtitle" class="plan-hero-sub">{{ displaySubtitle }}</p>

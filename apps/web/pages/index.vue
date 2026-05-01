@@ -660,6 +660,7 @@ onBeforeUnmount(() => {
               <PlanningPreview
                 :agent-status="agentStatus"
                 :error-message="errorMessage"
+                :force-planning-skeleton="true"
                 :phase="phase"
               />
             </div>

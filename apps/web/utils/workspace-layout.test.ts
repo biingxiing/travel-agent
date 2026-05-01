@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 const repoRoot = resolve(import.meta.dirname, '..')
 const mainCss = readFileSync(resolve(repoRoot, 'assets/css/main.css'), 'utf8')
 const heroPlannerCard = readFileSync(resolve(repoRoot, 'components/HeroPlannerCard.vue'), 'utf8')
+const planningPreview = readFileSync(resolve(repoRoot, 'components/PlanningPreview.vue'), 'utf8')
 const indexPage = readFileSync(resolve(repoRoot, 'pages/index.vue'), 'utf8')
 
 function extractBlock(source: string, selector: string) {
@@ -136,5 +137,12 @@ describe('progressive results panel layout', () => {
     expect(mobileBlock).toBeTruthy()
     expect(mobileBlock).toContain('.mobile-planning-preview {')
     expect(mobileBlock).toContain('display: block;')
+  })
+
+  it('forces planning skeleton in the mobile fallback even when partial plans exist', () => {
+    expect(indexPage).toContain(':force-planning-skeleton="true"')
+    expect(planningPreview).toContain('forcePlanningSkeleton?: boolean')
+    expect(planningPreview).toContain('const shouldShowPlanBody = computed(() => Boolean(currentPlan.value) && !props.forcePlanningSkeleton)')
+    expect(planningPreview).toContain('<div v-else-if="shouldShowPlanBody" class="itinerary-body">')
   })
 })
