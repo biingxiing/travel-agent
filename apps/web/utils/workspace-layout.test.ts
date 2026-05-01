@@ -91,14 +91,22 @@ describe('progressive results panel layout', () => {
     expect(indexPage).toContain('class="main-grid-panel main-grid-panel-secondary"')
   })
 
-  it('uses the final plan signal in initial generation close and error guards', () => {
-    expect(indexPage).toContain(`?? (chatPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')`)
-    expect(indexPage).toContain('if (chatPlan.value) {')
-  })
-
-  it('uses the final plan signal in continue optimization close and error guards', () => {
-    expect(indexPage).toContain('?? (chatPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")')
-    expect(indexPage).toContain('if (chatPlan.value) {')
+  it('uses the final plan signal in each targeted close/error guard branch', () => {
+    expect(indexPage).toMatch(
+      /async function submitPrompt[\s\S]*onClose:\s*\(\)\s*=>\s*{[\s\S]*\?\? \(chatPlan\.value \? '已为你生成最新方案，右侧可以查看完整行程。' : ''\)/,
+    )
+    expect(indexPage).toMatch(
+      /async function submitPrompt[\s\S]*onError:\s*\(err\)\s*=>\s*{[\s\S]*if \(chatPlan\.value\) {[\s\S]*} else {[\s\S]*chatStore\.setRequestError\(message\)/,
+    )
+    expect(indexPage).toMatch(
+      /async function submitPrompt[\s\S]*catch \(error\) {[\s\S]*if \(chatPlan\.value\) {[\s\S]*} else {[\s\S]*chatStore\.setRequestError\(message\)/,
+    )
+    expect(indexPage).toMatch(
+      /async function onContinue[\s\S]*onClose:\s*\(\)\s*=>\s*{[\s\S]*\?\? \(chatPlan\.value \? "已为你生成最新方案，右侧可以查看完整行程。" : ""\)/,
+    )
+    expect(indexPage).toMatch(
+      /async function onContinue[\s\S]*onError:\s*\(err\)\s*=>\s*{[\s\S]*if \(chatPlan\.value\) {[\s\S]*} else {[\s\S]*chatStore\.setRequestError\(message\)/,
+    )
   })
 
   it('uses a 46/54 split with a reveal animation for the secondary panel', () => {
