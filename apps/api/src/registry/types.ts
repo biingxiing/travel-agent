@@ -1,5 +1,3 @@
-import type { Message, ChatStreamEvent } from '@travel-agent/shared'
-
 export interface SkillManifest {
   name: string
   version: string
@@ -14,20 +12,4 @@ export interface SkillHandler {
 export interface Skill {
   manifest: SkillManifest
   handler: SkillHandler
-}
-
-export interface AgentManifest {
-  name: string
-  version: string
-  description: string
-  requiredSkills?: string[]
-}
-
-export interface AgentHandler {
-  (messages: Message[]): AsyncGenerator<ChatStreamEvent>
-}
-
-export interface Agent {
-  manifest: AgentManifest
-  handler: AgentHandler
 }

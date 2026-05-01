@@ -11,8 +11,6 @@ const welcomeMessage: ChatMessage = {
 
 const planningMessages = {
   thinking: "正在理解你的需求…",
-  start: "正在为你生成旅行方案…",
-  done: "正在整理最终方案…"
 } as const
 
 const CHAT_SESSION_STORAGE_KEY = "travel-agent-chat-state"
@@ -149,26 +147,18 @@ export const useChatStore = defineStore("chat", {
     errorMessage: "",
     currentMessageId: "",
     pendingAssistantText: "",
-    reasoningText: "",
     messages: [welcomeMessage] as ChatMessage[],
     plan: null as Plan | null,
     pendingSelections: [] as ItemSelection[],
-    iteration: 0,
-    maxIterations: 10,
     awaitingClarify: null as { question: string; reason: string; defaultSuggestion?: string } | null,
-    canContinue: false
   }),
   actions: {
     resetTransientState() {
-      this.iteration = 0
-      this.maxIterations = 10
       this.awaitingClarify = null
-      this.canContinue = false
       this.streamSteps = []
       this.errorMessage = ''
       this.currentMessageId = ''
       this.pendingAssistantText = ''
-      this.reasoningText = ''
     },
     persistState() {
       persistChatState({
@@ -268,14 +258,8 @@ export const useChatStore = defineStore("chat", {
             extractor: '正在理解你的需求…',
             prefetch: '正在查询可选方案…',
             generator: '正在生成行程方案…',
-            evaluator: '正在评估行程质量…',
-            critic: '正在分析改进点…',
           }
-          if (event.status === 'refining') {
-            this.agentStatus = '正在优化行程…'
-          } else if (event.status === 'evaluating') {
-            this.agentStatus = '正在评估行程质量…'
-          } else if (event.status === 'start' || event.status === 'thinking') {
+          if (event.status === 'start' || event.status === 'thinking') {
             this.agentStatus = labels[event.agent] ?? '正在处理…'
           }
           break
@@ -285,7 +269,6 @@ export const useChatStore = defineStore("chat", {
           this.setAssistantContent(this.pendingAssistantText)
           break
         case 'tool_reasoning':
-          this.reasoningText += event.delta
           break
         case 'assistant_say': {
           // A finalized "narration" message — orchestrator told the user something
@@ -324,12 +307,10 @@ export const useChatStore = defineStore("chat", {
             reason: event.reason,
             defaultSuggestion: event.defaultSuggestion,
           }
-          this.canContinue = false
           ws.status = 'awaiting_user'
           break
         case 'done':
           if (event.converged) {
-            this.canContinue = false
             ws.status = 'converged'
             this.agentStatus = '规划完成'
           }

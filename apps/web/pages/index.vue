@@ -39,7 +39,6 @@ const {
   phase,
   streamSteps,
   awaitingClarify,
-  canContinue,
 } = storeToRefs(chatStore)
 const { errorMessage: authErrorMessage, status: authStatus, username } = storeToRefs(authStore)
 const { sessionId: workspaceSessionId, currentPlan } = storeToRefs(workspaceStore)

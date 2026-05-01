@@ -55,10 +55,7 @@ export const ChatStreamEventSchema = z.discriminatedUnion('type', [
     type: z.literal('agent_step'),
     agent: z.string(),
     skill: z.string().optional(),
-    status: z.enum([
-      'thinking', 'start', 'done', 'error',
-      'evaluating', 'refining',
-    ]),
+    status: z.enum(['thinking', 'start', 'done', 'error']),
     input: z.any().optional(),
     output: z.any().optional(),
   }),

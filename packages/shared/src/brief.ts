@@ -38,11 +38,3 @@ export const TripBriefSchema = z.preprocess((raw) => {
 }, rawBriefShape)
 
 export type TripBrief = z.infer<typeof rawBriefShape>
-
-export function isBriefMinimallyComplete(b: Partial<TripBrief>): boolean {
-  return (b.destinations?.length ?? 0) > 0 && !!b.days && b.days > 0
-}
-
-export function mergeBrief(prev: TripBrief, patch: Partial<TripBrief>): TripBrief {
-  return TripBriefSchema.parse({ ...prev, ...patch }) as TripBrief
-}

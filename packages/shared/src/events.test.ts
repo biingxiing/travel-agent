@@ -19,7 +19,7 @@ describe('ChatStreamEventSchema · variant coverage', () => {
   })
 
   it('parses agent_step with all status enum values', () => {
-    const statuses = ['thinking', 'start', 'done', 'error', 'evaluating', 'refining'] as const
+    const statuses = ['thinking', 'start', 'done', 'error'] as const
     for (const status of statuses) {
       const e = ChatStreamEventSchema.parse({ type: 'agent_step', agent: 'extractor', status })
       expect(e.type).toBe('agent_step')
@@ -138,7 +138,7 @@ describe('ChatStreamEventSchema · round-trip JSON safety', () => {
   it('round-trips every variant through JSON encode/decode', () => {
     const variants: ChatStreamEvent[] = [
       { type: 'session', sessionId: 's', messageId: 'm' },
-      { type: 'agent_step', agent: 'critic', status: 'evaluating' },
+      { type: 'agent_step', agent: 'generator', status: 'done' },
       { type: 'token', delta: 'x' },
       { type: 'plan_partial', plan: { destinations: ['sh'] } },
       { type: 'plan', plan: minimalPlan },
