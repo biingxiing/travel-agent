@@ -81,9 +81,7 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
               const json = dataLine.slice(5).trim()
               try {
                 const parsed = JSON.parse(json) as ChatStreamEvent
-                if ((parsed as { type: string }).type !== 'heartbeat') {
-                  handlers.onEvent(parsed)
-                }
+                handlers.onEvent(parsed)
               } catch (err) { console.warn('[chatStream] parse failed (trailing frame)', err) }
             }
           }
@@ -99,9 +97,7 @@ export function useChatStream(initialSessionId: string | null = null): ChatStrea
           const json = dataLine.slice(5).trim()
           try {
             const parsed = JSON.parse(json) as ChatStreamEvent
-            if ((parsed as { type: string }).type !== 'heartbeat') {
-              handlers.onEvent(parsed)
-            }
+            handlers.onEvent(parsed)
           } catch (err) { console.warn('[chatStream] parse failed', err) }
         }
       }

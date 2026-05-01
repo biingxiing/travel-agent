@@ -1,5 +1,5 @@
 import { defineStore } from "pinia"
-import type { ChatStreamEvent, Message, Plan, ItemOption, ItemSelection } from "@travel-agent/shared"
+import type { ChatStreamEvent, Message, Plan } from "@travel-agent/shared"
 import type { ChatMessage, Role } from "~/types/itinerary"
 import { useWorkspaceStore } from "./workspace"
 
@@ -24,7 +24,6 @@ interface PersistedChatState {
   errorMessage: string
   messages: ChatMessage[]
   plan: Plan | null
-  pendingSelections: ItemSelection[]
 }
 
 function canUseSessionStorage() {
@@ -133,7 +132,6 @@ export function sanitizePersistedState(payload: PersistedChatState) {
     errorMessage: hasPlan ? "" : (typeof payload.errorMessage === "string" ? payload.errorMessage : ""),
     messages: messages.length > 0 ? messages : [welcomeMessage],
     plan,
-    pendingSelections: Array.isArray(payload.pendingSelections) ? payload.pendingSelections : [],
   }
 }
 
@@ -149,7 +147,6 @@ export const useChatStore = defineStore("chat", {
     pendingAssistantText: "",
     messages: [welcomeMessage] as ChatMessage[],
     plan: null as Plan | null,
-    pendingSelections: [] as ItemSelection[],
     awaitingClarify: null as { question: string; reason: string; defaultSuggestion?: string } | null,
   }),
   actions: {
@@ -170,7 +167,6 @@ export const useChatStore = defineStore("chat", {
         errorMessage: this.errorMessage,
         messages: this.messages,
         plan: this.plan,
-        pendingSelections: this.pendingSelections,
       })
     },
     hydrateFromSessionStorage() {
@@ -190,7 +186,6 @@ export const useChatStore = defineStore("chat", {
       this.errorMessage = sanitized.errorMessage
       this.messages = sanitized.messages
       this.plan = sanitized.plan
-      this.pendingSelections = sanitized.pendingSelections
       this.currentMessageId = ""
       this.pendingAssistantText = ""
     },
@@ -211,7 +206,6 @@ export const useChatStore = defineStore("chat", {
       this.phase = history.length > 0 ? 'result' : 'idle'
       this.agentStatus = history.length > 0 ? '上次行程已加载' : '准备开始'
       this.plan = plan
-      this.pendingSelections = []
       this.draft = ''
       this.messages = history.length > 0 ? [welcomeMessage, ...history] : [welcomeMessage]
       this.persistState()
@@ -224,7 +218,6 @@ export const useChatStore = defineStore("chat", {
       this.phase = "planning"
       this.resetTransientState()
       this.agentStatus = planningMessages.thinking
-      this.pendingSelections = []
       this.messages.push({
         id: `user-${Date.now()}`,
         role: "user",
@@ -268,37 +261,16 @@ export const useChatStore = defineStore("chat", {
           this.pendingAssistantText += event.delta
           this.setAssistantContent(this.pendingAssistantText)
           break
-        case 'tool_reasoning':
-          break
-        case 'assistant_say': {
-          // A finalized "narration" message — orchestrator told the user something
-          // before invoking a tool. Append as a separate bubble so the final answer
-          // (delivered via 'token') stays visually distinct.
-          this.messages.push({
-            id: `narration-${crypto.randomUUID()}`,
-            role: 'narration',
-            content: event.content,
-          })
-          this.persistState()
-          break
-        }
         case 'plan_partial':
           if (event.plan) {
             ws.currentPlan = event.plan
           }
-          break
-        case 'followup':
-          this.agentStatus = event.question
           break
         case 'plan':
           ws.currentPlan = event.plan
           ws.persistState()
           this.plan = event.plan
           this.awaitingClarify = null
-          this.persistState()
-          break
-        case 'item_options':
-          this.pendingSelections = event.selections
           this.persistState()
           break
         case 'clarify_needed':
@@ -363,7 +335,6 @@ export const useChatStore = defineStore("chat", {
       this.agentStatus = "规划完成"
       this.streamSteps = []
       this.pendingAssistantText = ""
-      this.pendingSelections = []
       this.setAssistantContent(message)
       this.persistState()
     },
@@ -390,41 +361,11 @@ export const useChatStore = defineStore("chat", {
       this.draft = content
       this.persistState()
     },
-    applyItemSelection(dayNum: number, itemIndex: number, option: ItemOption) {
-      if (!this.plan) return
-
-      const day = this.plan.dailyPlans.find((dailyPlan) => dailyPlan.day === dayNum)
-      if (!day) return
-
-      const item = day.items[itemIndex]
-      if (!item) return
-
-      if (option.patch.description) {
-        item.description = option.patch.description
-      }
-      if (option.patch.time) {
-        item.time = option.patch.time
-      }
-      if (option.patch.estimatedCost) {
-        item.estimatedCost = option.patch.estimatedCost
-      }
-
-      // Keep workspace store in sync (single source of truth for rendered plan)
-      const ws = useWorkspaceStore()
-      ws.currentPlan = this.plan
-
-      this.pendingSelections = this.pendingSelections.filter(
-        (selection) => !(selection.dayNum === dayNum && selection.itemIndex === itemIndex),
-      )
-      this.agentStatus = this.pendingSelections.length > 0 ? "方案已就绪，请确认选择" : "规划完成"
-      this.persistState()
-    },
     resetConversation() {
       this.resetTransientState()
       this.phase = "idle"
       this.agentStatus = "准备开始"
       this.plan = null
-      this.pendingSelections = []
       this.messages = [welcomeMessage]
       this.sessionId = ""
       this.draft = ""

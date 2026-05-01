@@ -45,10 +45,8 @@ async function streamOrchestrator(
 
     if (delta.content) {
       fullContent += delta.content
-      // Per-chunk live preview (kept for future foldable "thinking" UI).
-      // Final user-visible emission happens after the stream ends, based on
-      // whether tool calls follow.
-      await emit({ type: 'tool_reasoning', delta: delta.content } as ChatStreamEvent)
+      // Subagent transparency policy: orchestrator's mid-stream reasoning is not
+      // surfaced. Final user-visible 'token' emission happens after the stream ends.
     }
 
     if (delta.tool_calls) {

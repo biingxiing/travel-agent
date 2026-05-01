@@ -107,9 +107,6 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
       if (e.type === 'token') assistantContent += e.delta
       await send(e)
     }
-    const keepaliveInterval = setInterval(() => {
-      send({ type: 'heartbeat' }).catch(() => {})
-    }, 30_000)
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
       await withSessionContext(fresh.id, runId, async () => {
@@ -122,7 +119,6 @@ sessionsRouter.post('/:id/messages', zValidator('json', SendMessageSchema), asyn
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })
       await send({ type: 'done', messageId: runId })
     } finally {
-      clearInterval(keepaliveInterval)
       if (assistantContent) {
         await sessionStore.appendMessage(id, {
           role: 'assistant', content: sanitizeAssistantContent(assistantContent), timestamp: Date.now(),
@@ -158,9 +154,6 @@ sessionsRouter.post('/:id/continue', async (c) => {
       if (e.type === 'token') assistantContent += e.delta
       await send(e)
     }
-    const keepaliveInterval = setInterval(() => {
-      send({ type: 'heartbeat' }).catch(() => {})
-    }, 30_000)
     try {
       await send({ type: 'session', sessionId: fresh.id, messageId: runId })
       await withSessionContext(fresh.id, runId, async () => {
@@ -171,7 +164,6 @@ sessionsRouter.post('/:id/continue', async (c) => {
       await send({ type: 'error', code: 'LOOP_ERROR', message: msg })
       await send({ type: 'done', messageId: runId })
     } finally {
-      clearInterval(keepaliveInterval)
       if (assistantContent) {
         await sessionStore.appendMessage(id, {
           role: 'assistant', content: sanitizeAssistantContent(assistantContent), timestamp: Date.now(),

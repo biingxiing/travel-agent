@@ -51,7 +51,6 @@ describe('chat store history hydration', () => {
       errorMessage: '连接中断，请重试',
       messages: [],
       plan,
-      pendingSelections: [],
     })
 
     expect(sanitized.phase).toBe('result')
@@ -83,7 +82,6 @@ describe('chat store history hydration', () => {
         { id: 'system-1', role: 'system', content: '连接中断，请重试' },
       ] as any,
       plan,
-      pendingSelections: [],
     })
 
     expect(sanitized.messages.map((message) => message.role)).not.toContain('system')

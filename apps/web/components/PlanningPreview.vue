@@ -13,7 +13,6 @@ import {
   StickyNote,
 } from "lucide-vue-next"
 import type { PlanItem } from "@travel-agent/shared"
-import { useChatStore } from "~/stores/chat"
 import { useWorkspaceStore } from "~/stores/workspace"
 import { poiVisualForType } from "~/utils/poi-visual"
 
@@ -24,14 +23,12 @@ const props = defineProps<{
   forcePlanningSkeleton?: boolean
 }>()
 
-const chatStore = useChatStore()
 const workspaceStore = useWorkspaceStore()
-const { pendingSelections } = storeToRefs(chatStore)
 const { currentPlan } = storeToRefs(workspaceStore)
 const shouldShowPlanBody = computed(() => Boolean(currentPlan.value) && !props.forcePlanningSkeleton)
 
 const resultStatus = computed(() => {
-  if (props.phase === "planning" || pendingSelections.value.length > 0) {
+  if (props.phase === "planning") {
     return props.agentStatus
   }
 
@@ -147,7 +144,7 @@ function itemLocation(item: PlanItem): string {
       </div>
       <span
         class="masthead-status"
-        :class="{ 'is-active': phase === 'planning' || pendingSelections.length > 0 }"
+        :class="{ 'is-active': phase === 'planning' }"
       >
         <span class="masthead-status-dot" />
         {{ resultStatus }}
@@ -294,14 +291,6 @@ function itemLocation(item: PlanItem): string {
         <span class="disclaimer-body">{{ displayDisclaimer }}</span>
       </div>
 
-      <div v-if="pendingSelections.length" class="pending-selections">
-        <p class="masthead-kicker pending-kicker">请确认以下行程细节</p>
-        <ItemSelector
-          v-for="selection in pendingSelections"
-          :key="`${selection.dayNum}-${selection.itemIndex}`"
-          :selection="selection"
-        />
-      </div>
     </div>
 
     <div v-else-if="phase === 'planning'" class="itinerary-body">
