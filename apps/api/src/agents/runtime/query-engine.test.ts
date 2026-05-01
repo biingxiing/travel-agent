@@ -66,3 +66,77 @@ describe('QueryEngine — streaming', () => {
     expect(out.cancelled).toBe(true)
   })
 })
+
+import type { Tool } from './tool-pool.js'
+
+function makeTool(name: string, opts: { concurrent?: boolean; output?: string; halt?: boolean; throw?: string } = {}): Tool {
+  return {
+    name,
+    description: name,
+    parametersSchema: { type: 'object', properties: {}, required: [], additionalProperties: false },
+    isConcurrencySafe: () => opts.concurrent ?? true,
+    call: async () => {
+      if (opts.throw) throw new Error(opts.throw)
+      if (opts.halt) return { type: 'halt', reason: 'clarification_requested' }
+      return { type: 'ok', output: opts.output ?? `out-${name}` }
+    },
+  }
+}
+
+describe('QueryEngine — tool dispatch', () => {
+  it('runs concurrent-safe tools in parallel', async () => {
+    const pool = new ToolPool([makeTool('a'), makeTool('b')])
+    const engine = new QueryEngine({
+      persona: 'orchestrator', pool, session: stubSession(),
+      runId: 'r', messages: [], trace: new Trace('r-test'),
+    })
+    const calls = [
+      { id: '1', name: 'a', arguments: '{}', input: {} },
+      { id: '2', name: 'b', arguments: '{}', input: {} },
+    ]
+    const { toolResultMessages, halt } = await engine.dispatchToolCalls(calls, async () => undefined as unknown as never)
+    expect(halt).toBe(false)
+    expect(toolResultMessages).toHaveLength(2)
+    expect(toolResultMessages[0]!.content).toContain('out-a')
+    expect(toolResultMessages[1]!.content).toContain('out-b')
+  })
+
+  it('halts on first halt result', async () => {
+    const pool = new ToolPool([makeTool('a', { halt: true })])
+    const engine = new QueryEngine({
+      persona: 'orchestrator', pool, session: stubSession(),
+      runId: 'r', messages: [], trace: new Trace('r-test'),
+    })
+    const { halt } = await engine.dispatchToolCalls(
+      [{ id: '1', name: 'a', arguments: '{}', input: {} }],
+      async () => undefined as unknown as never,
+    )
+    expect(halt).toBe(true)
+  })
+
+  it('returns parseError as a tool result instead of throwing', async () => {
+    const pool = new ToolPool([makeTool('a')])
+    const engine = new QueryEngine({
+      persona: 'orchestrator', pool, session: stubSession(),
+      runId: 'r', messages: [], trace: new Trace('r-test'),
+    })
+    const { toolResultMessages } = await engine.dispatchToolCalls(
+      [{ id: '1', name: 'a', arguments: '{not json', parseError: 'bad' }],
+      async () => undefined as unknown as never,
+    )
+    expect(toolResultMessages[0]!.content).toMatch(/invalid JSON/)
+  })
+
+  it('captures throw as Tool error message', async () => {
+    const pool = new ToolPool([makeTool('a', { throw: 'boom' })])
+    const engine = new QueryEngine({
+      persona: 'orchestrator', pool, session: stubSession(),
+      runId: 'r', messages: [], trace: new Trace('r-test'),
+    })
+    const { toolResultMessages } = await engine.dispatchToolCalls(
+      [{ id: '1', name: 'a', arguments: '{}', input: {} }],
+      async () => undefined as unknown as never,
+    )
+    expect(toolResultMessages[0]!.content).toMatch(/Tool error: boom/)
+  })
+})

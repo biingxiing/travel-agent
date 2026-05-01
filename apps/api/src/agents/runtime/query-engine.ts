@@ -2,7 +2,7 @@ import type OpenAI from 'openai'
 import type { SessionState } from '@travel-agent/shared'
 import { PLANNER_MODEL } from '../../llm/client.js'
 import { loggedStream } from '../../llm/logger.js'
-import type { ToolPool } from './tool-pool.js'
+import type { ToolPool, EmitFn } from './tool-pool.js'
 import type { Trace } from './trace.js'
 
 export interface QueryEngineOptions {
@@ -103,5 +103,61 @@ export class QueryEngine {
       : { role: 'assistant', content: fullContent }
 
     return { fullContent, toolCalls, assistantMessage, cancelled: false }
+  }
+
+  async dispatchToolCalls(
+    calls: RawToolCall[],
+    emit: EmitFn,
+  ): Promise<{ toolResultMessages: OpenAI.Chat.ChatCompletionMessageParam[]; halt: boolean }> {
+    const { pool, session, trace, persona } = this.opts
+
+    interface BatchedCall { concurrent: boolean; calls: RawToolCall[] }
+    const partitioned: BatchedCall[] = []
+    let acc: RawToolCall[] = []
+    for (const c of calls) {
+      const tool = pool.find(c.name)
+      if (tool?.isConcurrencySafe()) {
+        acc.push(c)
+      } else {
+        if (acc.length > 0) { partitioned.push({ concurrent: true, calls: acc }); acc = [] }
+        partitioned.push({ concurrent: false, calls: [c] })
+      }
+    }
+    if (acc.length > 0) partitioned.push({ concurrent: true, calls: acc })
+
+    const runOne = async (c: RawToolCall): Promise<{ id: string; output: string; halt: boolean }> => {
+      if (c.parseError) {
+        return { id: c.id, output: `Error: invalid JSON arguments — ${c.parseError}.`, halt: false }
+      }
+      const tool = pool.find(c.name)
+      if (!tool) return { id: c.id, output: `Error: unknown tool "${c.name}"`, halt: false }
+      trace.event({ agent: persona, event: 'tool_call', tool: c.name, args: c.input })
+      try {
+        const r = await tool.call(c.input ?? {}, session, emit)
+        if (r.type === 'halt') {
+          trace.event({ agent: persona, event: 'tool_halt', tool: c.name, reason: r.reason })
+          return { id: c.id, output: 'Clarification requested.', halt: true }
+        }
+        trace.event({ agent: persona, event: 'tool_result', tool: c.name })
+        return { id: c.id, output: r.output, halt: false }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        trace.event({ agent: persona, event: 'tool_error', tool: c.name, error: msg })
+        return { id: c.id, output: `Tool error: ${msg}`, halt: false }
+      }
+    }
+
+    const results: { id: string; output: string; halt: boolean }[] = []
+    for (const batch of partitioned) {
+      if (batch.concurrent) {
+        results.push(...await Promise.all(batch.calls.map(runOne)))
+      } else {
+        for (const c of batch.calls) results.push(await runOne(c))
+      }
+    }
+    return {
+      halt: results.some((r) => r.halt),
+      toolResultMessages: results.map((r) => ({ role: 'tool' as const, tool_call_id: r.id, content: r.output })),
+    }
   }
 }
