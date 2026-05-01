@@ -42,3 +42,14 @@ export function buildMessages(input: Input): OpenAI.Chat.ChatCompletionMessagePa
 }
 
 export const TOOLS = new ToolPool([prefetchContextTool])
+
+import { registerPersona } from '../runtime/send-message.js'
+
+registerPersona({
+  name: 'researcher',
+  systemPrompt: SYSTEM_PROMPT,
+  InputSchema,
+  OutputSchema,
+  buildMessages,
+  tools: TOOLS,
+})

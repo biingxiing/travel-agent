@@ -2,6 +2,10 @@ import type OpenAI from 'openai'
 import type { SessionState } from '@travel-agent/shared'
 import { ToolPool } from '../runtime/tool-pool.js'
 import { compactHistoryIfNeeded, SLIDING_WINDOW } from './_compactor.js'
+import { extractBriefTool } from '../tools/orchestrator/extract-brief.tool.js'
+import { generatePlanTool } from '../tools/orchestrator/generate-plan.tool.js'
+import { askClarificationTool } from '../tools/orchestrator/ask-clarification.tool.js'
+import { startResearchTool } from '../tools/orchestrator/start-research.tool.js'
 
 export const SYSTEM_PROMPT = `You are an expert travel-planning orchestrator building personalized itineraries.
 
@@ -17,7 +21,9 @@ Ground every itinerary in real-world data. Use start_research before generate_pl
 
 After generate_plan returns, emit only a single short sentence in Chinese (≤ 30 chars) such as '行程规划已完成，祝您旅途愉快！' Do NOT reproduce the itinerary. No markdown.` as const
 
-export const TOOLS = new ToolPool([])    // populated by tools/orchestrator/* tasks
+export const TOOLS = new ToolPool([
+  extractBriefTool, startResearchTool, generatePlanTool, askClarificationTool,
+])
 
 function buildStateContextMessage(session: SessionState): OpenAI.Chat.ChatCompletionMessageParam {
   let loopPhase: string
