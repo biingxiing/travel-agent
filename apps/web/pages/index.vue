@@ -59,9 +59,7 @@ const leftPanelWidth = ref(46)
 const isResizingSplit = ref(false)
 let stopActiveResize: (() => void) | null = null
 const hasConversation = computed(() => messages.value.length > 1)
-const hasPlanArtifact = computed(() => Boolean(
-  chatPlan.value || (phase.value === "result" && currentPlan.value)
-))
+const hasPlanArtifact = computed(() => Boolean(chatPlan.value))
 const hasWorkspaceState = computed(() => Boolean(currentPlan.value || workspaceSessionId.value))
 const isAuthenticated = computed(() => authStatus.value === "authenticated")
 const isLanding = computed(() => !hasConversation.value && !hasWorkspaceState.value)
@@ -300,14 +298,14 @@ async function submitPrompt(value: string) {
       },
       onClose: () => {
         const message = chatStore.awaitingClarify?.question
-          ?? (currentPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')
+          ?? (chatPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')
         chatStore.completePlannerResponse(message)
       },
       onError: (err) => {
         const raw = err instanceof Error ? err.message : ''
         const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
         const message = isNetworkError ? '连接中断，请重试' : (raw || '请求出错，请重试')
-        if (currentPlan.value) {
+        if (chatPlan.value) {
           chatStore.completePlannerResponse(message)
         } else {
           chatStore.setRequestError(message)
@@ -318,7 +316,7 @@ async function submitPrompt(value: string) {
     const raw = error instanceof Error ? error.message : ''
     const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
     const message = isNetworkError ? '连接中断，请重试' : (raw || '请求出错，请重试')
-    if (currentPlan.value) {
+    if (chatPlan.value) {
       chatStore.completePlannerResponse(message)
     } else {
       chatStore.setRequestError(message)
@@ -333,7 +331,7 @@ async function onContinue() {
     },
     onClose: () => {
       const message = chatStore.awaitingClarify?.question
-        ?? (currentPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
+        ?? (chatPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
       chatStore.completePlannerResponse(message)
     },
     onError: (err) => {
@@ -344,7 +342,7 @@ async function onContinue() {
         : (raw || '继续优化失败，请稍后再试。')
       // Preserve the rendered plan if it already exists — only append the
       // error as a chat bubble rather than switching to the error phase.
-      if (currentPlan.value) {
+      if (chatPlan.value) {
         chatStore.completePlannerResponse(message)
       } else {
         chatStore.setRequestError(message)

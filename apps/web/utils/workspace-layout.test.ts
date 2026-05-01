@@ -74,9 +74,9 @@ describe('workspace landing layout styles', () => {
 })
 
 describe('progressive results panel layout', () => {
-  it('derives the plan-panel reveal signal from the final plan plus hydrated result fallback', () => {
+  it('derives the plan-panel reveal signal from only the final plan signal', () => {
     expect(indexPage).toMatch(
-      /const hasPlanArtifact = computed\(\(\) => Boolean\(\s*chatPlan\.value \|\| \(phase\.value === ["']result["'] && currentPlan\.value\)\s*\)\)/,
+      /const hasPlanArtifact = computed\(\(\) => Boolean\(chatPlan\.value\)\)/,
     )
   })
 
@@ -89,6 +89,16 @@ describe('progressive results panel layout', () => {
     expect(indexPage).toContain('<template v-if="hasPlanArtifact">')
     expect(indexPage).not.toContain(`<template v-if="hasPlanArtifact || phase === 'planning'">`)
     expect(indexPage).toContain('class="main-grid-panel main-grid-panel-secondary"')
+  })
+
+  it('uses the final plan signal in initial generation close and error guards', () => {
+    expect(indexPage).toContain(`?? (chatPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')`)
+    expect(indexPage).toContain('if (chatPlan.value) {')
+  })
+
+  it('uses the final plan signal in continue optimization close and error guards', () => {
+    expect(indexPage).toContain('?? (chatPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")')
+    expect(indexPage).toContain('if (chatPlan.value) {')
   })
 
   it('uses a 46/54 split with a reveal animation for the secondary panel', () => {
