@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import type OpenAI from 'openai'
 import type { SessionState } from '@travel-agent/shared'
 import { QueryEngine } from './query-engine.js'
 import { ToolPool } from './tool-pool.js'
@@ -18,10 +19,10 @@ vi.mock('../../llm/logger.js', () => ({
 }))
 import { loggedStream } from '../../llm/logger.js'
 
-function fakeStreamYielding(chunks: string[]) {
+function fakeStreamYielding(chunks: string[]): AsyncGenerator<OpenAI.Chat.ChatCompletionChunk, void, unknown> {
   return (async function* () {
     for (const c of chunks) {
-      yield { choices: [{ delta: { content: c } }] }
+      yield { choices: [{ delta: { content: c } }] } as unknown as OpenAI.Chat.ChatCompletionChunk
     }
   })()
 }
