@@ -19,8 +19,8 @@ vi.mock('../../llm/logger.js', () => ({
 function turns(n: number): Message[] {
   const out: Message[] = []
   for (let i = 0; i < n; i++) {
-    out.push({ id: `u${i}`, role: 'user', content: `user ${i}`, ts: i })
-    out.push({ id: `a${i}`, role: 'assistant', content: `assistant ${i}`, ts: i })
+    out.push({ role: 'user', content: `user ${i}`, timestamp: i })
+    out.push({ role: 'assistant', content: `assistant ${i}`, timestamp: i })
   }
   return out
 }
