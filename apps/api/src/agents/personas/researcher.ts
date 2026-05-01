@@ -45,10 +45,11 @@ export const TOOLS = new ToolPool([prefetchContextTool])
 
 import { registerPersona } from '../runtime/send-message.js'
 
-registerPersona({
+registerPersona<Input, Output>({
   name: 'researcher',
   systemPrompt: SYSTEM_PROMPT,
-  InputSchema,
+  // TripBriefSchema uses z.preprocess so InputSchema's _input is `unknown`; cast to the parsed Input type for the registry.
+  InputSchema: InputSchema as unknown as z.ZodType<Input>,
   OutputSchema,
   buildMessages,
   tools: TOOLS,

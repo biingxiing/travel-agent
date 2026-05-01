@@ -1,4 +1,14 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+
+// Mock llm/client to avoid the LLM_BASE_URL/LLM_API_KEY env requirement at import time.
+// researcher.ts -> registerPersona -> send-message.ts -> query-engine.ts -> llm/client.ts
+vi.mock('../../llm/client.js', () => ({
+  llm: { chat: { completions: { create: vi.fn() } } },
+  PLANNER_MODEL: 'fake-planner',
+  FAST_MODEL: 'fake-fast',
+  REASONING_EFFORT: undefined,
+}))
+
 import { SYSTEM_PROMPT, InputSchema, OutputSchema, buildMessages, TOOLS } from './researcher.js'
 
 describe('Researcher persona', () => {
@@ -21,10 +31,11 @@ describe('Researcher persona', () => {
   })
 
   it('buildMessages places SYSTEM_PROMPT at index 0 (cache invariant)', () => {
-    const m = buildMessages({
+    const input = InputSchema.parse({
       brief: { destinations: ['Beijing'], days: 3, travelers: 2, preferences: [] },
       researchGoals: ['transport'],
     })
+    const m = buildMessages(input)
     expect(m[0]!.role).toBe('system')
     expect(m[0]!.content).toBe(SYSTEM_PROMPT)
   })
