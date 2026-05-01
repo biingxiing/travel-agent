@@ -177,7 +177,7 @@ export async function loggedCompletion(
       model: params.model,
       choices: [{
         index: 0,
-        message: { role: 'assistant', content },
+        message: { role: 'assistant', content, refusal: null },
         finish_reason: (finishReason ?? 'stop') as OpenAI.Chat.ChatCompletion.Choice['finish_reason'],
         logprobs: null,
       }],

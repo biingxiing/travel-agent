@@ -22,7 +22,7 @@ afterEach(() => {
 
 async function buildAppWithMiddleware() {
   const { authMiddleware } = await import('./middleware.js')
-  const app = new Hono()
+  const app = new Hono<{ Variables: { userId: string } }>()
   app.use('*', authMiddleware)
   app.get('/api/auth/me', (c) => c.json({ ok: true, scope: 'auth' }))
   app.get('/api/sessions', (c) => c.json({ ok: true, userId: c.get('userId') }))
