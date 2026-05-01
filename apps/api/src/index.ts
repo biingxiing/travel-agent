@@ -6,6 +6,7 @@ import { assertAuthConfig } from './auth/config.js'
 import { authRouter } from './routes/auth.js'
 import { sessionsRouter } from './routes/sessions.js'
 import { registryRouter } from './routes/registry.js'
+import { devTracesRouter } from './routes/dev-traces.js'
 import { runDatabaseMigrations } from './persistence/pg.js'
 import { bootstrapRegistry } from './registry/bootstrap.js'
 
@@ -30,6 +31,10 @@ app.use('*', cors({
 app.route('/api', authRouter)
 app.route('/api/sessions', sessionsRouter)
 app.route('/api/registry', registryRouter)
+
+if (process.env.NODE_ENV !== 'production') {
+  app.route('/dev/traces', devTracesRouter)
+}
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
