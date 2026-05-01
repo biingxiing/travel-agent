@@ -1,12 +1,23 @@
 import { describe, it, expect, vi } from 'vitest'
 import type { SessionState } from '@travel-agent/shared'
-import { SYSTEM_PROMPT, buildMessages, TOOLS } from './orchestrator.js'
+
+// Mock the LLM client so importing orchestrator.js (and its tool modules) does not require env at test time
+vi.mock('../../llm/client.js', () => ({
+  llm: { chat: { completions: { create: vi.fn() } } },
+  PLANNER_MODEL: 'fake-planner',
+  FAST_MODEL: 'fake-fast',
+  REASONING_EFFORT: undefined,
+}))
 
 vi.mock('./_compactor.js', () => ({
   COMPACT_THRESHOLD: 10,
   SLIDING_WINDOW: 20,
-  compactHistoryIfNeeded: vi.fn(async () => null),   // unit tests: no compaction
+  // unit tests: no fresh compaction; pass through existing summary so the
+  // "compacted history added as system" test still has data to assert on.
+  compactHistoryIfNeeded: vi.fn(async (_turns: unknown, existing: string | null) => existing),
 }))
+
+import { SYSTEM_PROMPT, buildMessages, buildStateContextMessage, TOOLS } from './orchestrator.js'
 
 const stub = (overrides: Partial<SessionState> = {}): SessionState => ({
   id: 's', userId: 'u', messages: [], status: 'draft',
@@ -33,11 +44,10 @@ describe('Orchestrator persona', () => {
     expect(m[1]!.content).toContain('SUMMARY OF EARLIER TURNS')
   })
 
-  it('appends a Session state user message at the tail', async () => {
-    const m = await buildMessages(stub())
-    const last = m[m.length - 1]!
-    expect(last.role).toBe('user')
-    expect(typeof last.content === 'string' && last.content.startsWith('Session state:')).toBe(true)
+  it('buildStateContextMessage produces a user message starting with "Session state:"', () => {
+    const m = buildStateContextMessage(stub())
+    expect(m.role).toBe('user')
+    expect(typeof m.content === 'string' && m.content.startsWith('Session state:')).toBe(true)
   })
 
   it('TOOLS is a ToolPool (populated by tools/orchestrator/* in later tasks)', () => {

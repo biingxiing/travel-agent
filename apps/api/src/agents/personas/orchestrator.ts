@@ -25,7 +25,7 @@ export const TOOLS = new ToolPool([
   extractBriefTool, startResearchTool, generatePlanTool, askClarificationTool,
 ])
 
-function buildStateContextMessage(session: SessionState): OpenAI.Chat.ChatCompletionMessageParam {
+export function buildStateContextMessage(session: SessionState): OpenAI.Chat.ChatCompletionMessageParam {
   let loopPhase: string
   if (session.currentPlan) loopPhase = 'planned'
   else if (session.brief) loopPhase = 'briefed'
@@ -44,18 +44,17 @@ function buildStateContextMessage(session: SessionState): OpenAI.Chat.ChatComple
   }
 }
 
+/** Stable prefix: SYSTEM_PROMPT + (optional summary) + recent 20 turns. NO state-context. */
 export async function buildMessages(
   session: SessionState,
 ): Promise<OpenAI.Chat.ChatCompletionMessageParam[]> {
   const userAssistant = (session.messages ?? []).filter(
     (m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0,
   )
-  const produced = await compactHistoryIfNeeded(userAssistant, session.compactedHistory ?? null)
-  // Persist newly-generated summary on the session so it is locked thereafter.
-  if (produced && !session.compactedHistory) {
-    (session as unknown as { compactedHistory: string }).compactedHistory = produced
+  const summary = await compactHistoryIfNeeded(userAssistant, session.compactedHistory ?? null)
+  if (summary && !session.compactedHistory) {
+    (session as unknown as { compactedHistory: string }).compactedHistory = summary
   }
-  const summary = session.compactedHistory ?? produced
   const recent = userAssistant.slice(-SLIDING_WINDOW).map((m) => ({
     role: m.role as 'user' | 'assistant',
     content: m.content,
@@ -63,6 +62,5 @@ export async function buildMessages(
   const out: OpenAI.Chat.ChatCompletionMessageParam[] = [{ role: 'system', content: SYSTEM_PROMPT }]
   if (summary) out.push({ role: 'system', content: `Earlier-turn summary:\n${summary}` })
   out.push(...recent)
-  out.push(buildStateContextMessage(session))
   return out
 }
