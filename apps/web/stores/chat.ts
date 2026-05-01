@@ -250,6 +250,7 @@ export const useChatStore = defineStore("chat", {
           const labels: Record<string, string> = {
             extractor: '正在理解你的需求…',
             prefetch: '正在查询可选方案…',
+            researcher: '正在收集真实数据…',
             generator: '正在生成行程方案…',
           }
           if (event.status === 'start' || event.status === 'thinking') {
