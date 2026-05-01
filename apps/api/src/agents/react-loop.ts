@@ -14,7 +14,7 @@ const MAX_TURNS = 10
 async function streamOrchestrator(
   state: LoopState,
   session: SessionState,
-  emit: EmitFn,
+  _emit: EmitFn,
 ): Promise<{
   assistantMessage: OpenAI.Chat.ChatCompletionMessageParam
   toolCalls: ToolCallBlock[]
