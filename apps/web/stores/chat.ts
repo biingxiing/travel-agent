@@ -198,7 +198,7 @@ export const useChatStore = defineStore("chat", {
       this.sessionId = sessionId
       this.persistState()
     },
-    hydrateFromSessionMessages(messages: Message[]) {
+    hydrateFromSessionMessages(messages: Message[], plan: Plan | null = null) {
       const history: ChatMessage[] = messages
         .filter((m) => (m.role === 'user' || m.role === 'assistant') && m.content.trim().length > 0)
         .map((m, i) => ({
@@ -210,7 +210,7 @@ export const useChatStore = defineStore("chat", {
       this.resetTransientState()
       this.phase = history.length > 0 ? 'result' : 'idle'
       this.agentStatus = history.length > 0 ? '上次行程已加载' : '准备开始'
-      this.plan = null
+      this.plan = plan
       this.pendingSelections = []
       this.draft = ''
       this.messages = history.length > 0 ? [welcomeMessage, ...history] : [welcomeMessage]

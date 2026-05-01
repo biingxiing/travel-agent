@@ -36,6 +36,7 @@ const {
   draft,
   errorMessage,
   messages,
+  plan: chatPlan,
   phase,
   streamSteps,
   awaitingClarify,
@@ -45,12 +46,12 @@ const { sessionId: workspaceSessionId, currentPlan } = storeToRefs(workspaceStor
 const logoutPending = ref(false)
 const sidebarOpen = ref(false)
 const mainSplitRef = ref<HTMLElement | null>(null)
-const leftPanelWidth = ref(42)
+const leftPanelWidth = ref(46)
 const isResizingSplit = ref(false)
 let stopActiveResize: (() => void) | null = null
 const hasConversation = computed(() => messages.value.length > 1)
+const hasPlanArtifact = computed(() => Boolean(chatPlan.value))
 const hasWorkspaceState = computed(() => Boolean(currentPlan.value || workspaceSessionId.value))
-const hasPlanArtifact = computed(() => Boolean(currentPlan.value))
 const isAuthenticated = computed(() => authStatus.value === "authenticated")
 const isLanding = computed(() => !hasConversation.value && !hasWorkspaceState.value)
 const pageNotice = computed(() => {
@@ -288,14 +289,14 @@ async function submitPrompt(value: string) {
       },
       onClose: () => {
         const message = chatStore.awaitingClarify?.question
-          ?? (currentPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')
+          ?? (chatPlan.value ? '已为你生成最新方案，右侧可以查看完整行程。' : '')
         chatStore.completePlannerResponse(message)
       },
       onError: (err) => {
         const raw = err instanceof Error ? err.message : ''
         const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
         const message = isNetworkError ? '连接中断，请重试' : (raw || '请求出错，请重试')
-        if (currentPlan.value) {
+        if (chatPlan.value) {
           chatStore.completePlannerResponse(message)
         } else {
           chatStore.setRequestError(message)
@@ -306,7 +307,7 @@ async function submitPrompt(value: string) {
     const raw = error instanceof Error ? error.message : ''
     const isNetworkError = /network error|failed to fetch|networkerror/i.test(raw)
     const message = isNetworkError ? '连接中断，请重试' : (raw || '请求出错，请重试')
-    if (currentPlan.value) {
+    if (chatPlan.value) {
       chatStore.completePlannerResponse(message)
     } else {
       chatStore.setRequestError(message)
@@ -321,7 +322,7 @@ async function onContinue() {
     },
     onClose: () => {
       const message = chatStore.awaitingClarify?.question
-        ?? (currentPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
+        ?? (chatPlan.value ? "已为你生成最新方案，右侧可以查看完整行程。" : "")
       chatStore.completePlannerResponse(message)
     },
     onError: (err) => {
@@ -332,7 +333,7 @@ async function onContinue() {
         : (raw || '继续优化失败，请稍后再试。')
       // Preserve the rendered plan if it already exists — only append the
       // error as a chat bubble rather than switching to the error phase.
-      if (currentPlan.value) {
+      if (chatPlan.value) {
         chatStore.completePlannerResponse(message)
       } else {
         chatStore.setRequestError(message)
@@ -348,7 +349,7 @@ async function loadHistoryEntry(entry: TripHistoryEntry) {
     stream.setSessionId(session.id)
     workspaceStore.hydrateFromSession(session)
     workspaceStore.persistState()
-    chatStore.hydrateFromSessionMessages(session.messages)
+    chatStore.hydrateFromSessionMessages(session.messages, session.currentPlan)
     chatStore.setSession(session.id)
   } catch (err) {
     const isNotFound = err instanceof Error && err.message.includes('404')
@@ -408,7 +409,7 @@ async function restoreActiveSession() {
     stream.setSessionId(session.id)
     workspaceStore.hydrateFromSession(session)
     workspaceStore.persistState()
-    chatStore.hydrateFromSessionMessages(session.messages)
+    chatStore.hydrateFromSessionMessages(session.messages, session.currentPlan)
     chatStore.setSession(session.id)
   } catch (err) {
     const isNotFound = err instanceof Error && err.message.includes('404')
@@ -580,7 +581,7 @@ onBeforeUnmount(() => {
             <section
               ref="mainSplitRef"
               class="main-grid"
-              :class="{ 'is-single-panel': !hasPlanArtifact && phase !== 'planning' }"
+              :class="{ 'is-single-panel': !hasPlanArtifact }"
               :style="mainGridStyle"
             >
               <div class="main-grid-panel main-grid-panel-primary">
@@ -603,7 +604,7 @@ onBeforeUnmount(() => {
                 </ChatPanel>
               </div>
 
-              <template v-if="hasPlanArtifact || phase === 'planning'">
+              <template v-if="hasPlanArtifact">
                 <button
                   type="button"
                   class="main-grid-divider"
@@ -619,7 +620,7 @@ onBeforeUnmount(() => {
                   </span>
                 </button>
 
-                <div class="main-grid-panel">
+                <div class="main-grid-panel main-grid-panel-secondary">
                   <PlanningPreview
                     :agent-status="agentStatus"
                     :error-message="errorMessage"
@@ -628,6 +629,15 @@ onBeforeUnmount(() => {
                 </div>
               </template>
             </section>
+
+            <div v-if="!hasPlanArtifact && phase === 'planning'" class="mobile-planning-preview">
+              <PlanningPreview
+                :agent-status="agentStatus"
+                :error-message="errorMessage"
+                :force-planning-skeleton="true"
+                :phase="phase"
+              />
+            </div>
           </section>
         </template>
       </div>
