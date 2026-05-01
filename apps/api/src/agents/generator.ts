@@ -318,13 +318,14 @@ export async function* runInitial(
     }
   }
   if (!json) {
-    yield { type: 'done', messageId }
+    // No `done` emission here — generator is invoked as a sub-tool from the orchestrator
+    // react-loop, which owns the top-level `done` event. Emitting `done` here used to
+    // leak through and prematurely terminate the SSE stream on the client.
     return null
   }
   try {
     const plan = PlanSchema.parse(normalizePlanJson(JSON.parse(json)))
     yield { type: 'plan', plan }
-    yield { type: 'done', messageId }
     return plan
   } catch (err) {
     yield { type: 'error', code: 'PLAN_PARSE_FAILED', message: err instanceof Error ? err.message : String(err) }
